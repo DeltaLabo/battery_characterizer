@@ -6,6 +6,7 @@ Created on Fri Jul 30 10:07:51 2021
 Instituto Tecnológico de Costa Rica
 """
 from time import sleep 
+import controller
 #Se define una variable global que se utilizará dentro de cada función
 #Se define para no tener que estar definiéndolo de nuevo en cada estado
 state = 'i'

@@ -55,3 +55,4 @@ class Carga:  # Esta clase describe cada neurona
     def fijar_resistencia(self, resistencia: float):
         self.carga.write(":SOUR:RES:LEV:IMM {}".format(resistencia))
         return self.carga.query(":SOUR:RES:LEV:IMM?")
+
