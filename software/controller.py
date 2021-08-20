@@ -15,7 +15,7 @@ class Fuente:  # Esta clase describe cada neurona
         self.fuente.write(":OUTPUT CH{:n},OFF".format(channel))
         return self.fuente.query(":OUTP? CH{}".format(channel))
 
-    def aplicar_voltaje_corriente(self, channel: int, voltaje: float, corriente: float):
+    def aplicar_voltaje_corriente(self, channel, voltaje, corriente):
         self.fuente.write(":APPLY CH{},{},{}".format(channel, voltaje, corriente))
         return self.fuente.query("APPLY? CH{}".format(channel))
 
@@ -26,6 +26,8 @@ class Fuente:  # Esta clase describe cada neurona
         corriente = medicion[1]
         potencia = medicion[2]
         return float(voltaje), float(corriente), float(potencia)
+
+    #Agregar un medir_voltaje
 
 class Carga:  # Esta clase describe cada neurona
     def __init__(self, instrument, name=None):
