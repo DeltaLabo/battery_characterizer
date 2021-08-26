@@ -1,18 +1,20 @@
-#Código para ciclar baterías en un rango de tensión y corriente definidos previamente
+########Código para ciclar baterías en un rango de tensión y corriente definidos previamente########
+# Diego Fernández Arias
+# Instituto Tecnológico de Costa Rica
 import pyvisa
 import controller
 import time
 from time import sleep
-#Se define una variable global que se utilizará dentro de cada función
-#Se define para no tener que estar definiéndolo de nuevo en cada estado
-state = 'i'
-#Definir el orden de la fuente y de la carga
+
+state = 'i' #Variable global que se utilizará dentro de cada función
 rm = pyvisa.ResourceManager()
 print(rm.list_resources()) #Retorna los recursos (fuente y carga)
 fuente = rm.open_resource(rm.list_resources()[0])
-print(fuente.query("*IDN?"))
-Fuente = controller.Fuente(fuente, "Diego") #Parámetro para iterar cuando hay más recursos
-#################################################################################################
+print(fuente.query("*IDN?")) #Verificar orden dela fuente y la carga
+Fuente = controller.Fuente(fuente, "Diego") #'Diego' parámetro para iterar cuando hay más recursos
+
+##########################Se define el diccionario con los estados##################################
+
 #Primero se definirá la base de la máquina de estados (utilizando diccionarios)
 def statemachine (entry):
     global state #Se llama a la variable global que se definió 
@@ -26,6 +28,8 @@ def statemachine (entry):
     return func(entry)
 
 #Se define cada uno de los estados (inicial, carga, descarga y espera)
+
+#########################Se define la función del estado inicial#####################################
 
 def INIT(entry):
     global state
@@ -45,38 +49,40 @@ def INIT(entry):
 #Se setea el recurso de la fuente para CARGAR la batería 
 #Sección para definir cuáles son los recursos y su orden
 
+##################Se define la función que hará que la batería se cargue#############################
+
 def CHARGE (curr):
     global state
     sleep(2)
     channel = int(input("Digite el canal que utilizará (1, 2, 3): \n")) #Canal a utilizar
-    tension = float(input("Digite la tensión a setear en la fuente:\n")) #Tensión máxima
-    corriente = float(input("Digite la capacidad de la batería en Ah:\n"))
-    curr = corriente / 2
+    tension = float(input("Digite la tensión a setear en la fuente (V):\n")) #Tensión máxima
+    corrientemedida = float(input("Digite la corriente máxima (A):\n")) #Corriente de protección
+    curr = corrientemedida / 2
     Fuente.aplicar_voltaje_corriente(channel, tension, curr)
     Fuente.encender_canal(channel)
-    time.sleep(10)
-    print(Fuente.medir_todo(channel))
-    #Fuente.apagar_canal(channel)
-
-    #Tres opciones: >=, ==, <=
-    if curr == 1.5:
-        state = 1
-        Fuente.apagar_canal(channel)
-        print("Avanzando al estado de DESCARGA...")
-        
-    elif curr > 1.5:
-        state = 0
-        print("El valor de la corriente es mayor a 100 mA...")
-        sleep(2)
-# Aquí podría definirse qué es la acción que se llevará a cabo si la corriente
-# es MAYOR a la que se defina (100 mA, en este caso) 
+    time.sleep(5)
+    while True: 
+        print(Fuente.medir_todo(channel))
        
-    elif curr < 1.5:
-        state = 0
-        print ("El valor de la corriente todavía es menor a 100 mA...")
-        sleep(2)
-# Aquí podría definirse qué es la acción que se llevará a cabo si la corriente
-# es MENOR a la que se defina (100 mA, en este caso)   
+        #Tres opciones: >=, ==, <=
+        if Fuente.medir_todo(channel)[1] == 1.12: #1.12 A por V/R = I = 4/3.3
+            state = 1
+            #Fuente.apagar_canal(channel)
+            print("Avanzando al estado de DESCARGA...")
+            break 
+            
+        elif Fuente.medir_todo(channel)[1] > 1.12:
+            state = 0
+            Fuente.apagar_canal
+            print("CUIDADO! El valor de la corriente es mayor al máximo de 1.12 A...")
+            sleep(2)
+   
+        elif Fuente.medir_todo(channel)[1] < 1.12:
+            state = 0
+            print ("El valor de la corriente todavía es menor a 1.12 A...")
+            #sleep(2) #Este sleep puede ser peligroso por el tiempo que detiene al 'while'
+
+##################Se define la función que hará que la batería se descargue##########################
 
 #Se setea el recurso de la CARGA para descargar la batería       
 def DISCHARGE(voltage):
@@ -100,6 +106,9 @@ def DISCHARGE(voltage):
         sleep(2)
 # Este es un estado crítico. La tensión de la celda no puede bajar 
 # más allá de su mínimo.
+
+###################Se define la función que retornará al estado inicial###########################
+
 def WAIT(entry):
     global state
     sleep (10)
@@ -111,11 +120,11 @@ cont = int(input("Digite la cantidad de ciclos de carga/descarga de la batería:
 contador = 0
 while contador <= cont:
     statemachine('i')
-    contador = contador +1
+    contador = contador +1 # Necesita múltiplos de 3 por alguna razón
+
 ##########################
 #while True:
 #    statemachine('i')
-##########################    
 ###################################################################################################
 #cont = int(input("Digite la cantidad de ciclos de carga/descarga de la batería:\n"))
 #contador = 0
