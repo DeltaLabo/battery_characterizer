@@ -112,15 +112,13 @@ def medicion():
     #vcp = volt,current,power 
     print(datetime.now(),end=': ')
     volt,current,power = Fuente.medir_todo(channel) #Esto sobreescribe los valores inclusive
-    print(f'La tensión es {volt}, la corriente es de {current} y la potencia de {power}')
+    print(f'V = {volt} \t I = {current}\t P = {power}')
     
-    ''' Subir data al csv
     df1 = pd.DataFrame(volt)#, columns = ['Voltaje'], 'Corriente', 'Potencia']) 
     print(df1)
     df1.to_csv('C:/Repositories/battery_characterizer/software/prueba_outputs.csv')#, columns = ['Voltaje'])#, 'Corriente', 'Potencia'])
-    print(f'La tensión es {volt}, la corriente es de {current} y la potencia de {power}')
-    #t = threading.Timer(5, medicion()) # esto creo que no va
-    '''
+   
+
 
 
     #Esto puede pasar a no imprimir en la terminal los valores, sino guardarlos
@@ -169,6 +167,7 @@ def CHARGE (entry): #cambiar este parámetro
         Fuente.toggle_4w()
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
         init_flag = 0
+        relay_control(state)
 
     if timer_flag == 1:
         timer_flag = 0
@@ -229,6 +228,7 @@ def DISCHARGE(entry):
     prev_state = 2 #DISCHARGE
     state = 3 #WAIT
     mintowait = 1
+    relay_control(state)
     print("Se ha llegado al estado de descarga... Se avanzará al estado de espera...")
 
 #     #Tres opciones: -=, ==, +=
@@ -259,6 +259,7 @@ def WAIT(entry):
     global counter
     global prev_state
 
+    relay_control(state)
     if timer_flag == 1:
         timer_flag = 0
         counter += 1
