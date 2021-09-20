@@ -10,12 +10,14 @@ import pandas as pd
 from datetime import datetime
 import RPi.GPIO as GPIO
 
+GPIO.cleanup()
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(17,GPIO.OUT)
 GPIO.setup(18,GPIO.OUT)
 ##########################Definición 'controller2'##################################
 rm = pyvisa.ResourceManager()
-fuente = rm.open_resource(rm.list_resources()[0])
+print(rm.list_resources())
+fuente = rm.open_resource(rm.list_resources()[1])
 fuente.write_termination = '\n'
 fuente.read_termination = '\n'
 
@@ -35,7 +37,7 @@ Fuente = controller2.Fuente(fuente, "SPD1305") # SPD parámetro para iterar cuan
 # Fuente = controller2.Fuente(fuente, "Diego") #'Diego' parámetro para iterar cuando hay más recursos
 
 
-df = pd.read_csv("C:/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
+df = pd.read_csv("/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
 
 #Variables globales que se utilizará dentro de cada función
 state = 0 
@@ -65,7 +67,6 @@ def statemachine (entry):
     }         #switch será el diccionario donde se guarden los cuatro estados
     func = switch.get(state)
     return func(entry)
-
 #Se define cada uno de los estados (inicial, carga, descarga y espera)
 
 #########################Se define la función del estado inicial#####################################
@@ -73,6 +74,7 @@ def statemachine (entry):
 def INIT(entry):
     global state
     global df
+    global init_flag
     #df2 = pd.read_csv("C:/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
     #tension_fuente = float(input("Digite la tensión a setear en la fuente (V):\n")) #Tensión máxima
     print ("Estado inicial... \n")
@@ -82,6 +84,7 @@ def INIT(entry):
     #Aquí se definirá la condición para que la máquina pase de una estado a otro
     if entry == "a":
         state = 1
+        init_flag = 1
         print("Avanzando al estado de CARGA...")
     else:
         state = 0
@@ -113,11 +116,11 @@ def medicion():
     print(datetime.now(),end=': ')
     volt,current,power = Fuente.medir_todo(channel) #Esto sobreescribe los valores inclusive
     print(f'V = {volt} \t I = {current}\t P = {power}')
-    
+    '''
     df1 = pd.DataFrame(volt)#, columns = ['Voltaje'], 'Corriente', 'Potencia']) 
     print(df1)
     df1.to_csv('C:/Repositories/battery_characterizer/software/prueba_outputs.csv')#, columns = ['Voltaje'])#, 'Corriente', 'Potencia'])
-   
+    '''
 
 
 
@@ -128,20 +131,21 @@ def medicion():
 
 def relay_control(state):
     if state == 1:
+        print("si entre")
         GPIO.output(18,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(17,GPIO.HIGH)
-        time.sleep(0.5)
-    if state == 2:
+        time.sleep(2)
+    elif state == 2:
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.HIGH)
-        time.sleep(0.5)
-    if state == 3:
+        time.sleep(2)
+    elif state == 3:
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.LOW)
-        time.sleep(0.5)
+        time.sleep(2)
         
 
 
@@ -160,6 +164,8 @@ def CHARGE (entry): #cambiar este parámetro
     set_supply_current = df.iloc[0,2]
 
     if init_flag == 1:
+        relay_control(1)
+        time.sleep(2)
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         set_supply_current = df.iloc[0,2] #[fila,columna]
         half_supply_current = set_supply_current / 2
@@ -167,7 +173,7 @@ def CHARGE (entry): #cambiar este parámetro
         Fuente.toggle_4w()
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
         init_flag = 0
-        relay_control(state)
+        
 
     if timer_flag == 1:
         timer_flag = 0
@@ -175,6 +181,11 @@ def CHARGE (entry): #cambiar este parámetro
         if counter >= 5:
             medicion()
             counter = 0
+        if current <= (0.25 * set_supply_current) : #1.12 A por V/R = I = 4/3.3
+            prev_state = 1 #CHARGE
+            state = 3 #WAIT
+            init_flag = 1
+            mintowait = 10
     
 
     #while state == 1:
@@ -193,11 +204,7 @@ def CHARGE (entry): #cambiar este parámetro
 
     # >=, ==, <=
     #if Fuente.medir_todo(channel)[1] == 1.12: #1.12 A por V/R = I = 4/3.3
-    if current <= (0.25 * set_supply_current) : #1.12 A por V/R = I = 4/3.3
-        prev_state = 1 #CHARGE
-        state = 3 #WAIT
-        init_flag = 1
-        mintowait = 10
+
         #Fuente.apagar_canal(channel)
         #print("Avanzando al estado de DESCARGA...")
         
