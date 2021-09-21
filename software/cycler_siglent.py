@@ -237,6 +237,11 @@ def DISCHARGE(entry):
     mintowait = 1
     relay_control(state)
     print("Se ha llegado al estado de descarga... Se avanzará al estado de espera...")
+    
+    #Primeras pruebas para descarga mediante la carga electrónica Rigol DL3021
+    Carga.encender_carga()
+    
+    
 
 #     #Tres opciones: -=, ==, +=
 #     if voltage == 2.5:
