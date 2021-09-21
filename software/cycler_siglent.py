@@ -12,8 +12,8 @@ import RPi.GPIO as GPIO
 
 GPIO.cleanup()
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(17,GPIO.OUT)
-GPIO.setup(18,GPIO.OUT)
+GPIO.setup(17,GPIO.OUT) #Pin #17 RPi
+GPIO.setup(18,GPIO.OUT) #Pin #18 RPi
 ##########################Definición 'controller2'##################################
 rm = pyvisa.ResourceManager()
 print(rm.list_resources())
@@ -21,6 +21,7 @@ fuente = rm.open_resource(rm.list_resources()[1])
 fuente.write_termination = '\n'
 fuente.read_termination = '\n'
 
+#Sección para definir cuáles son los recursos y su orden
 # Alternativa al no tener un comando 'query' para 
 fuente.write("*IDN?")
 time.sleep(0.1) 
@@ -36,7 +37,7 @@ Fuente = controller2.Fuente(fuente, "SPD1305") # SPD parámetro para iterar cuan
 # #print(fuente.query("*IDN?")) #Verificar orden dela fuente y la carga
 # Fuente = controller2.Fuente(fuente, "Diego") #'Diego' parámetro para iterar cuando hay más recursos
 
-
+#Lee valores de entrada como el canal, corriente y voltaje de un archivo csv
 df = pd.read_csv("/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
 
 #Variables globales que se utilizará dentro de cada función
@@ -78,7 +79,7 @@ def INIT(entry):
     #df2 = pd.read_csv("C:/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
     #tension_fuente = float(input("Digite la tensión a setear en la fuente (V):\n")) #Tensión máxima
     print ("Estado inicial... \n")
-    sleep(2)
+    #sleep(2)
     #state = 1
     entry = input("Deberá digitar la letra 'a' para avanzar al siguiente estado: \n")
     #Aquí se definirá la condición para que la máquina pase de una estado a otro
@@ -91,65 +92,50 @@ def INIT(entry):
         sleep (2)
         print("Se mantiene el estado inicial... Digite la letra correcta")
         sleep(2)
-    
-#Se setea el recurso de la fuente para CARGAR la batería 
-#Sección para definir cuáles son los recursos y su orden
 
-################# Se define la función que hará que la batería se cargue ############################
-
-def ISR():
+#Interrupt Service Routine
+#Executed in response to an event such as a time trigger or a voltage change on a pin
+def ISR(): 
     global timer_flag
-    t = threading.Timer(1.0, ISR)
+    t = threading.Timer(1.0, ISR) #ISR se ejecuta cada 1 s mediante threading
     t.start()
-    timer_flag = 1
+    timer_flag = 1 #Al iniciar el hilo, el timer_flag pasa a ser 1
 
 #Thread de medición
 def medicion():
     global volt
     global current
     global power
-    #t = threading.Timer(5.0, medicion)
-    #t.start()
-    #fuera de esta función? Para que esté correcto el uso en los ifs de "CHARGE".
-    #time.sleep(0.02) #Nuevo por falta de query
-    #vcp = volt,current,power 
     print(datetime.now(),end=': ')
-    volt,current,power = Fuente.medir_todo(channel) #Esto sobreescribe los valores inclusive
+    volt,current,power = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
     print(f'V = {volt} \t I = {current}\t P = {power}')
+    #A continuación, se escriben los valores en un csv
     '''
     df1 = pd.DataFrame(volt)#, columns = ['Voltaje'], 'Corriente', 'Potencia']) 
     print(df1)
     df1.to_csv('C:/Repositories/battery_characterizer/software/prueba_outputs.csv')#, columns = ['Voltaje'])#, 'Corriente', 'Potencia'])
     '''
-
-
-
-    #Esto puede pasar a no imprimir en la terminal los valores, sino guardarlos
-    #en un csv para después graficar con los valores de I y V
-    #df = pd
-
-
+#Función para controlar módulo de relés (CH1 y CH2)    
 def relay_control(state):
-    if state == 1:
-        print("si entre")
+    if state == 1: #Charge - CH1
+        print("Sí entré")
         GPIO.output(18,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(17,GPIO.HIGH)
         time.sleep(2)
-    elif state == 2:
+    elif state == 2: #Discharge - CH2
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.HIGH)
         time.sleep(2)
-    elif state == 3:
+    elif state == 3: # Wait - Both Low
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.LOW)
         time.sleep(2)
-        
 
-
-def CHARGE (entry): #cambiar este parámetro
+################# Se define la función que hará que la batería se cargue ############################
+def CHARGE (entry): 
     global state
     global channel
     global volt
@@ -161,19 +147,18 @@ def CHARGE (entry): #cambiar este parámetro
     global counter
     global prev_state
     global mintowait
-    set_supply_current = df.iloc[0,2]
+    batt_capacity = df.iloc[0,2] #Eliminarse. Ya está en línea 156
 
     if init_flag == 1:
-        relay_control(1)
-        time.sleep(2)
+        relay_control(1) #CHARGE
+        #time.sleep(2)
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
-        set_supply_current = df.iloc[0,2] #[fila,columna]
-        half_supply_current = set_supply_current / 2
-        Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, half_supply_current)
-        Fuente.toggle_4w()
+        batt_capacity = df.iloc[0,2] #[fila,columna]
+        set_C_rate = batt_capacity / 2 #C rate seteado de 0.5C
+        Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
+        Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
-        init_flag = 0
-        
+        init_flag = 0 #Cambia el init_flag de 1 a 0
 
     if timer_flag == 1:
         timer_flag = 0
@@ -181,13 +166,11 @@ def CHARGE (entry): #cambiar este parámetro
         if counter >= 5:
             medicion()
             counter = 0
-        if current <= (0.25 * set_supply_current) : #1.12 A por V/R = I = 4/3.3
-            prev_state = 1 #CHARGE
-            state = 3 #WAIT
+        if current <= (0.25 * batt_capacity) :
+            prev_state = 1 #From CHARGE
+            state = 3 #To WAIT
             init_flag = 1
-            mintowait = 10
-    
-
+            mintowait = 10 #Wait 10 min 
     #while state == 1:
     #medicion() #OPCION A
     #volt2 = copy.deepcopy(volt) #OPCION A
@@ -230,17 +213,33 @@ def DISCHARGE(entry):
     global timer_flag
     global init_flag
     global counter
+    ###################################################################
+    if init_flag == 1:
+        relay_control(2) #DISCHARGE
+        #time.sleep(2)
+        #Los siguientes no se definen ya que se continúa con los datos usados para CHARGE
+        #set_supply_voltage = df.iloc[0,1] #[fila,columna]
+        #batt_capacity = df.iloc[0,2] #[fila,columna]
+        init_flag = 0
+        
+    if timer_flag ==1:
+        timer_flag = 0
+        counter += 1
+        
+        
+        
+    ###################################################################
     
-    #voltage = float(input("Digite el valor medido de la tensión de la batería (V): \n"))
-    prev_state = 2 #DISCHARGE
-    state = 3 #WAIT
-    mintowait = 1
-    relay_control(state)
+    '''
     print("Se ha llegado al estado de descarga... Se avanzará al estado de espera...")
+    prev_state = 2 #From DISCHARGE
+    state = 3 #To WAIT
+    mintowait = 1 #Wait 1 min
+    relay_control(state) #Pasa a State 3. Ambos Low
     
     #Primeras pruebas para descarga mediante la carga electrónica Rigol DL3021
     Carga.encender_carga()
-    
+    '''
     
 
 #     #Tres opciones: -=, ==, +=
@@ -296,4 +295,5 @@ cycles = int(input("Digite la cantidad de ciclos de carga/descarga de la baterí
 cycle_counter = 0
 while cycle_counter <= cycles:
     statemachine(0)
+    #cycle_counter += 0 #Ciclos aumentan cada vez
     #contador = contador +1 # Necesita múltiplos de 3 por alguna razón1
