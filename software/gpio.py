@@ -5,13 +5,7 @@ GPIO.setup(17,GPIO.OUT)
 GPIO.setup(18,GPIO.OUT)
 
 while (1):
-	GPIO.output(17,GPIO.HIGH)
-	time.sleep(0.5)
 	GPIO.output(17,GPIO.LOW)
-	time.sleep(0.5)
-	GPIO.output(18,GPIO.HIGH)
-	time.sleep(0.5)
-	GPIO.output(18,GPIO.LOW)
-	time.sleep(0.5)
-
-
+	time.sleep(60)
+	GPIO.output(17,GPIO.LOW)
+	

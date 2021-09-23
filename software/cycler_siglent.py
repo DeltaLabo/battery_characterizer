@@ -39,7 +39,7 @@ Fuente = controller2.Fuente(fuente, "SPD1305") # SPD parámetro para iterar cuan
 
 #Lee valores de entrada como el canal, corriente y voltaje de un archivo csv
 df = pd.read_csv("/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
-
+outputCSV = pd.DataFrame(columns = ["Timestamp", "Voltage", "Current", "Power"])
 #Variables globales que se utilizará dentro de cada función
 state = 0 
 channel = df.iloc[0,0] #[Fila,columna] Variable global del canal (Canal 1 por default)
@@ -56,7 +56,7 @@ prev_state = 0
 
 ##########################Se define el diccionario con los estados##################################
 
-#Primero se definirá la base de la máquina de estados (utilizando diccionarios)
+#Primero se definirá la base de la máquina de estados (utilizando diccionapandas append csvrios)
 def statemachine (entry):
     global state #Se llama a la variable global que se definió 
     #afuera de las funciones 
@@ -106,19 +106,19 @@ def medicion():
     global volt
     global current
     global power
-    print(datetime.now(),end=': ')
+    global outputCSV
+
+    tiempoActual = datetime.now()
+    print(tiempoActual,end=',')
     volt,current,power = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
-    print(f'V = {volt} \t I = {current}\t P = {power}')
+    print("{:06.3},{:06.3f},{:06.3f}".format(volt, current, power))
+
     #A continuación, se escriben los valores en un csv
-    '''
-    df1 = pd.DataFrame(volt)#, columns = ['Voltaje'], 'Corriente', 'Potencia']) 
-    print(df1)
-    df1.to_csv('C:/Repositories/battery_characterizer/software/prueba_outputs.csv')#, columns = ['Voltaje'])#, 'Corriente', 'Potencia'])
-    '''
+    outputCSV = outputCSV.append({"Timestamp":tiempoActual, "Voltage":volt, "Current":current, "Power":power}, ignore_index=True)
+    outputCSV.to_csv("/home/pi/Repositories/battery_characterizer/software/prueba_outputs2.csv")#, columns = ['Voltaje'])#, 'Corriente', 'Potencia'])
 #Función para controlar módulo de relés (CH1 y CH2)    
 def relay_control(state):
     if state == 1: #Charge - CH1
-        print("Sí entré")
         GPIO.output(18,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(17,GPIO.HIGH)
@@ -154,19 +154,20 @@ def CHARGE (entry):
         #time.sleep(2)
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = batt_capacity / 2 #C rate seteado de 0.5C
+        set_C_rate = batt_capacity * 2 #C rate seteado de 0.5C
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
         init_flag = 0 #Cambia el init_flag de 1 a 0
+        timer_flag = 0
 
     if timer_flag == 1:
         timer_flag = 0
         counter +=  1
-        if counter >= 5:
+        if counter >= 1:
             medicion()
             counter = 0
-        if current <= (0.25 * batt_capacity) :
+        if current <= (0.45 * batt_capacity) :
             prev_state = 1 #From CHARGE
             state = 3 #To WAIT
             init_flag = 1
@@ -216,6 +217,7 @@ def DISCHARGE(entry):
     ###################################################################
     if init_flag == 1:
         relay_control(2) #DISCHARGE
+        Carga.remote_sense("ON")
         #time.sleep(2)
         #Los siguientes no se definen ya que se continúa con los datos usados para CHARGE
         #set_supply_voltage = df.iloc[0,1] #[fila,columna]

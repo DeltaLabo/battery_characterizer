@@ -12,7 +12,7 @@ class Fuente:  # Esta clase describe cada neurona
         self.modo = "2W"
 
         instrument.write("*IDN?")
-        time.sleep(0.02)
+        time.sleep(0.05)
         id = instrument.read()
 
         if "SPD1305X" in id:
@@ -24,7 +24,7 @@ class Fuente:  # Esta clase describe cada neurona
     def encender_canal(self, channel: int):
         if self.delay_enable:
             self.instrument.write("OUTP CH{:n},ON".format(channel))
-            time.sleep(0.02)
+            time.sleep(0.05)
             return "ON"
         else:
             self.instrument.write(":OUTPUT CH{:n},ON".format(channel))
@@ -34,7 +34,7 @@ class Fuente:  # Esta clase describe cada neurona
     def apagar_canal(self, channel: int):
         if self.delay_enable:
             self.instrument.write("OUTP CH{:n},OFF".format(channel))
-            time.sleep(0.02)
+            time.sleep(0.05)
             return "OFF"
         self.instrument.write(":OUTPUT CH{:n},OFF".format(channel))
         return self.instrument.query(":OUTP? CH{}".format(channel))
@@ -43,17 +43,17 @@ class Fuente:  # Esta clase describe cada neurona
     def aplicar_voltaje_corriente(self, channel: int, voltaje: float, corriente: float):
         if self.delay_enable:
             self.instrument.write("CH{}:VOLT {}".format(channel, voltaje))
-            time.sleep(0.02)
+            time.sleep(0.05)
             self.instrument.write("CH{}:CURR {}".format(channel, corriente))
-            time.sleep(0.02)
+            time.sleep(0.05)
             self.instrument.write("CH{}:VOLT?".format(channel))
-            time.sleep(0.02)
+            time.sleep(0.05)
             voltMeas = self.instrument.read()
-            time.sleep(0.02)
+            time.sleep(0.05)
             self.instrument.write("CH{}:CURR?".format(channel))
-            time.sleep(0.02)
+            time.sleep(0.05)
             currMeas = self.instrument.read()
-            time.sleep(0.02)
+            time.sleep(0.05)
             return "CH1:30V/5A," + voltMeas + "," + currMeas
         else:
             self.instrument.write(":APPLY CH{},{},{}".format(channel, voltaje, corriente))
@@ -63,17 +63,17 @@ class Fuente:  # Esta clase describe cada neurona
     def medir_todo(self, channel: int):
         if self.delay_enable:
             self.instrument.write("MEAS:VOLT? CH1")
-            time.sleep(0.02)
+            time.sleep(0.05)
             voltaje = float(self.instrument.read())
-            time.sleep(0.02)
+            time.sleep(0.05)
             self.instrument.write("MEAS:CURR? CH1")
-            time.sleep(0.02)
+            time.sleep(0.05)
             corriente = float(self.instrument.read())
-            time.sleep(0.02)
+            time.sleep(0.05)
             self.instrument.write("MEAS:POWE? CH1")
-            time.sleep(0.02)
+            time.sleep(0.05)
             potencia = float(self.instrument.read())
-            time.sleep(0.02)
+            time.sleep(0.05)
             return voltaje, corriente, potencia
         else:
             medicion = self.instrument.query(":MEASURE:ALL?").split(",")
@@ -137,3 +137,20 @@ class Carga:  # Esta clase describe cada neurona
     def fijar_potencia(self, resistencia: float):
         self.carga.write(":SOUR:POW:LEV:IMM {}".format(resistencia))
         return self.carga.query(":SOUR:POW:LEV:IMM?")
+    
+    # Set sensor terminals    
+    def remote_sense(self,state):
+        if state:
+            self.carga.write("SENS ON")
+        else:
+            self.carga.write("SENS OFF")
+
+    # Measure CURR
+    def medir_corriente(self):
+        return float(self.carga.query("MEAS:CURR:DC?"))
+        
+    # Measure VOLT
+    def medir_voltaje(self):
+        return float(self.carga.query("MEAS:VOLT:DC?"))
+        
+        
