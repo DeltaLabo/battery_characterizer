@@ -118,25 +118,25 @@ def INIT(entry):
         print("Se mantiene el estado inicial... Digite la letra correcta")
         sleep(2)
 
-def avanzar_estado(channel):
-    global state
-    if state == 0:
-        state == 1
-        print("Hacia CHARGE") 
-    if state == 1:
-        state = 2
-        print("Hacia DISCHARGE")
-    elif state == 2:
-        state = 3
-        print("Hacia WAIT")        
-    elif state == 3:
-        state = 6
-        print("Hacia END")
-GPIO.add_event_detect(24, GPIO.RISING, callback=avanzar_estado, bouncetime=1000) 
+#def avanzar_estado(channel):
+#    global state
+#    if state == 0:
+#        state == 1
+#        print("Hacia CHARGE") 
+#    if state == 1:
+#        state = 2
+#        print("Hacia DISCHARGE")
+#    elif state == 2:
+#        state = 3
+#        print("Hacia WAIT")        
+#    elif state == 3:
+#        state = 6
+#        print("Hacia END")
+#GPIO.add_event_detect(24, GPIO.RISING, callback=avanzar_estado, bouncetime=1000) 
 
-def reiniciar(channel):
-    state = 0
-GPIO.add_event_detect(23, GPIO.RISING, callback=reiniciar, bouncetime=1000) 
+#def reiniciar(channel):
+#    state = 0
+#GPIO.add_event_detect(23, GPIO.RISING, callback=reiniciar, bouncetime=1000) 
 
 #Interrupt Service Routine
 #Executed in response to an event such as a time trigger or a voltage change on a pin
