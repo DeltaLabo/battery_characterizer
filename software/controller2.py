@@ -12,7 +12,6 @@ class Fuente:
         self.modo = "2W"
         id = ""
         if self.delay_enable:
-            print("Entró")
             instrument.write_termination = '\n'
             instrument.read_termination = '\n'
             self.delay_enable = True
