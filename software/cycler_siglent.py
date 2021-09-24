@@ -1,6 +1,9 @@
-############Código para ciclar baterías en un rango de tensión y corriente definidos############
-# Diego Fernández Arias
-# Instituto Tecnológico de Costa Rica
+'''
+Ciclador de baterías############
+Diego Fernández Arias
+Instituto Tecnológico de Costa Rica
+Laboratorio Delta
+'''
 import pyvisa
 import controller2
 import time
@@ -10,26 +13,47 @@ import pandas as pd
 from datetime import datetime
 import RPi.GPIO as GPIO
 
-GPIO.cleanup()
+#GPIO.cleanup() pasarlo al final
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(17,GPIO.OUT) #Pin #17 RPi
 GPIO.setup(18,GPIO.OUT) #Pin #18 RPi
+GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) 
+GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) 
+
 ##########################Definición 'controller2'##################################
+#rm = pyvisa.ResourceManager()
+#print(rm.list_resources())
+#fuente = rm.open_resource(rm.list_resources()[1])
+#fuente.write_termination = '\n'
+#fuente.read_termination = '\n'
+
 rm = pyvisa.ResourceManager()
-print(rm.list_resources())
-fuente = rm.open_resource(rm.list_resources()[1])
-fuente.write_termination = '\n'
-fuente.read_termination = '\n'
+print(rm.list_resources()[1])
+
+for i in range(3):
+    if rm.list_resources()[i].find("DL3A21") > 0:
+        carga = rm.open_resource(rm.list_resources()[i]) 
+        print("Carga DL3A21 encontrada")
+        print(carga.query("*IDN?"))
+    elif rm.list_resources()[i].find("SPD13") > 0:
+        fuente = rm.open_resource(rm.list_resources()[i])
+        print("Fuente SPD1305X encontrada")
+        #print("Fuente SPD1305X encontrada")
+    #else:
+        #print("No se ha detectado la fuente o la carga")
+
 
 #Sección para definir cuáles son los recursos y su orden
 # Alternativa al no tener un comando 'query' para 
-fuente.write("*IDN?")
-time.sleep(0.1) 
-id = fuente.read()
-print(id) #Imprime la identificación del recurso
-time.sleep(0.2)
+#fuente.write("*IDN?")
+#time.sleep(0.2) 
+#id = fuente.read()
+#time.sleep(0.2) 
+#print(id) #Imprime la identificación del recurso
+#time.sleep(0.2)
 
-Fuente = controller2.Fuente(fuente, "SPD1305") # SPD parámetro para iterar cuando hay más recursos
+Fuente = controller2.Fuente(fuente, "SPD1305", tipoFuente = True) # SPD parámetro para iterar cuando hay más recursos
+Carga = controller2.Carga(carga, "DL3021")
 #############################################################################################
 # rm = pyvisa.ResourceManager()
 # print(rm.list_resources()) #Retorna los recursos (fuente y carga)
@@ -40,6 +64,7 @@ Fuente = controller2.Fuente(fuente, "SPD1305") # SPD parámetro para iterar cuan
 #Lee valores de entrada como el canal, corriente y voltaje de un archivo csv
 df = pd.read_csv("/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
 outputCSV = pd.DataFrame(columns = ["Timestamp", "Voltage", "Current", "Power"])
+
 #Variables globales que se utilizará dentro de cada función
 state = 0 
 channel = df.iloc[0,0] #[Fila,columna] Variable global del canal (Canal 1 por default)
@@ -93,6 +118,26 @@ def INIT(entry):
         print("Se mantiene el estado inicial... Digite la letra correcta")
         sleep(2)
 
+def avanzar_estado(channel):
+    global state
+    if state == 0:
+        state == 1
+        print("Hacia CHARGE") 
+    if state == 1:
+        state = 2
+        print("Hacia DISCHARGE")
+    elif state == 2:
+        state = 3
+        print("Hacia WAIT")        
+    elif state == 3:
+        state = 6
+        print("Hacia END")
+GPIO.add_event_detect(24, GPIO.RISING, callback=avanzar_estado, bouncetime=1000) 
+
+def reiniciar(channel):
+    state = 0
+GPIO.add_event_detect(23, GPIO.RISING, callback=reiniciar, bouncetime=1000) 
+
 #Interrupt Service Routine
 #Executed in response to an event such as a time trigger or a voltage change on a pin
 def ISR(): 
@@ -106,12 +151,16 @@ def medicion():
     global volt
     global current
     global power
+    global state
     global outputCSV
 
     tiempoActual = datetime.now()
     print(tiempoActual,end=',')
-    volt,current,power = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
-    print("{:06.3},{:06.3f},{:06.3f}".format(volt, current, power))
+    if state == 1:
+        volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
+    elif state == 2: 
+        volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
+    print("{:06.3f},{:06.3f}".format(volt, current))
 
     #A continuación, se escriben los valores en un csv
     outputCSV = outputCSV.append({"Timestamp":tiempoActual, "Voltage":volt, "Current":current, "Power":power}, ignore_index=True)
@@ -171,33 +220,7 @@ def CHARGE (entry):
             prev_state = 1 #From CHARGE
             state = 3 #To WAIT
             init_flag = 1
-            mintowait = 10 #Wait 10 min 
-    #while state == 1:
-    #medicion() #OPCION A
-    #volt2 = copy.deepcopy(volt) #OPCION A
-
-    #print(f"Volt 1 es {volt}")
-    #print(volt2)
-
-    # if volt2 != volt: #OPCION A
-    #     #t = threading.Timer(5, medicion) #OPCION A
-    #     t.start() #OPCION A
-    #     volt2 = copy.deepcopy(volt) #OPCION A
-    #     print(volt)
-    #     print(volt2)1
-
-    # >=, ==, <=
-    #if Fuente.medir_todo(channel)[1] == 1.12: #1.12 A por V/R = I = 4/3.3
-
-        #Fuente.apagar_canal(channel)
-        #print("Avanzando al estado de DESCARGA...")
-        
-    #elif current > 1.12: 
-    #elif Fuente.medir_todo(channel)[1] > 1.12:
-        #state = 1
-        #Fuente.apagar_canal(channel)
-        #print("CUIDADO! El valor de la corriente es mayor al máximo de 1.12 A...")
-        #sleep(2)
+            mintowait = 0.1 #Wait 10 min 
 
 ################# Se define la función que hará que la batería se descargue #########################
 
@@ -218,50 +241,24 @@ def DISCHARGE(entry):
     if init_flag == 1:
         relay_control(2) #DISCHARGE
         Carga.remote_sense("ON")
-        #time.sleep(2)
-        #Los siguientes no se definen ya que se continúa con los datos usados para CHARGE
-        #set_supply_voltage = df.iloc[0,1] #[fila,columna]
-        #batt_capacity = df.iloc[0,2] #[fila,columna]
+        Carga.fijar_corriente(3.5) #Descargando a 1C
+        Carga.encender_carga()
         init_flag = 0
+        timer_flag = 0 #Revisar
         
-    if timer_flag ==1:
+    if timer_flag == 1:
         timer_flag = 0
         counter += 1
-        
-        
-        
-    ###################################################################
-    
-    '''
-    print("Se ha llegado al estado de descarga... Se avanzará al estado de espera...")
-    prev_state = 2 #From DISCHARGE
-    state = 3 #To WAIT
-    mintowait = 1 #Wait 1 min
-    relay_control(state) #Pasa a State 3. Ambos Low
-    
-    #Primeras pruebas para descarga mediante la carga electrónica Rigol DL3021
-    Carga.encender_carga()
-    '''
-    
-
-#     #Tres opciones: -=, ==, +=
-#     if voltage == 2.5:
-#         state = 3
-#         print("Avanzando al estado de ESPERA...")
-# # A partir de aquí, el circuito debe abrirse y no puede seguirse descargando
-# # Orden al programa de dejar de descargar       
-#     elif voltage > 2.5:
-#         state = 2
-#         print ("El valor de tensión en la batería es mayor al mínimo para avanzar...")
-#         sleep(2)
-
-#     elif voltage < 2.5:
-#         state = 2
-#         print("¡ALERTA! El valor de tensión de la batería es menor al mínimo... ")
-#         sleep(2)
-# Este es un estado crítico. La tensión de la celda no puede bajar 
-# más allá de su mínimo.
-
+        if counter >= 1:
+            medicion()
+            counter = 0
+        if volt <= (2.55):
+            prev_state = 2 #From DISCHARGE
+            state = 3 #To WAIT
+            init_flag = 1
+            mintowait = 0.1 # Wait 10 min    
+    ##################################################################
+     
 ################ Se define la función que esperará y retornará al estado inicial ####################
 
 def WAIT(entry):
@@ -276,13 +273,15 @@ def WAIT(entry):
     if timer_flag == 1:
         timer_flag = 0
         counter += 1
+        print(counter) #, end='\r')
         if counter >= (mintowait * 60):
             if prev_state == 1: #CHARGE:
                 state = 2 #DISCHARGE
+                print("Estado DISCHARGE") 
             elif prev_state == 2: #DISCHARGE:
                 state = 6 #END
+                print("Estado END")    
     
-    print("Volviendo al estadio inicial...")
 
 ####Función final. Apagará canal cuando se hayan cumplido ciclos o reiniciará
 def END(entry):

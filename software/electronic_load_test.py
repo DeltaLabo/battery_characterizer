@@ -18,7 +18,7 @@ for i in range(2):
 	if rm.list_resources()[i].find("DL3A21") > 0:
 		carga = rm.open_resource(rm.list_resources()[i]) 
 		print("Carga DL3A21 encontrada")
-	elif rm.list_resources()[i].find("SPD1305") > 0:
+	elif rm.list_resources()[i].find("SPD13") > 0:
 		fuente = rm.open_resource(rm.list_resources()[i]) 
 		print("Fuente SPD1305X encontrada")
 	

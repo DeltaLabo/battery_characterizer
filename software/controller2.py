@@ -4,21 +4,25 @@ import time
 
 
 # functions for power supply
-class Fuente:  # Esta clase describe cada neurona
-    def __init__(self, instrument, name=None):
+class Fuente:  
+    def __init__(self, instrument, name=None, tipoFuente=False):
         self.instrument = instrument
         self.name = name  # Nombre para identificar en depuracion
-        self.delay_enable = False
+        self.delay_enable = tipoFuente
         self.modo = "2W"
-
-        instrument.write("*IDN?")
-        time.sleep(0.05)
-        id = instrument.read()
-
-        if "SPD1305X" in id:
+        id = ""
+        if self.delay_enable:
+            print("Entró")
             instrument.write_termination = '\n'
             instrument.read_termination = '\n'
             self.delay_enable = True
+            
+        instrument.write("*IDN?")
+        time.sleep(0.05)
+        id = instrument.read()
+        print("ID: {}".format(id))
+
+
 
     # turn on channel
     def encender_canal(self, channel: int):
@@ -70,18 +74,18 @@ class Fuente:  # Esta clase describe cada neurona
             time.sleep(0.05)
             corriente = float(self.instrument.read())
             time.sleep(0.05)
-            self.instrument.write("MEAS:POWE? CH1")
-            time.sleep(0.05)
-            potencia = float(self.instrument.read())
-            time.sleep(0.05)
-            return voltaje, corriente, potencia
+            #self.instrument.write("MEAS:POWE? CH1")
+            #time.sleep(0.05)
+            #potencia = float(self.instrument.read())
+            #time.sleep(0.05)
+            return voltaje, corriente#, potencia
         else:
             medicion = self.instrument.query(":MEASURE:ALL?").split(",")
             medicion[-1] = medicion[-1][:-1]
             voltaje = medicion[0]
             corriente = medicion[1]
-            potencia = medicion[2]
-            return float(voltaje), float(corriente), float(potencia)
+            #potencia = medicion[2]
+            return float(voltaje), float(corriente)#, float(potencia)
 
     def toggle_4w(self):
         if self.delay_enable:
@@ -152,5 +156,13 @@ class Carga:  # Esta clase describe cada neurona
     # Measure VOLT
     def medir_voltaje(self):
         return float(self.carga.query("MEAS:VOLT:DC?"))
+        
+        # measure everything (in order returns: voltage, current and power)
+    def medir_todo(self):
+        voltaje = self.medir_voltaje()
+        corriente = self.medir_corriente()
+        return voltaje, corriente
+
+
         
         
