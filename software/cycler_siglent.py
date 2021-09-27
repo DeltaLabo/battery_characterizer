@@ -79,7 +79,6 @@ spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
 max31855 = adafruit_max31855.MAX31855(spi, cs)
 
-
 ##########################Se define el diccionario con los estados##################################
 
 #Primero se definirá la base de la máquina de estados (utilizando diccionapandas append csvrios)
@@ -157,16 +156,16 @@ def next_state(channel):
     next_state_flag = 1 
 GPIO.add_event_detect(24, GPIO.RISING, callback=next_state, bouncetime=1000) 
 
-def reiniciar(channel):
+def poweroff(channel):
     global state 
     GPIO.output(17, GPIO.LOW)
     GPIO.output(18, GPIO.LOW)
     Fuente.apagar_canal(channel)
     Carga.apagar_canal()
-    print("Se reinicia el sistema")
+    print("El sistema se ha apagado")
     time.sleep(10)
-    #state = 0
-GPIO.add_event_detect(23, GPIO.RISING, callback=reiniciar, bouncetime=1000)
+    state = 6
+GPIO.add_event_detect(23, GPIO.RISING, callback=poweroff, bouncetime=1000)
 
 
 #Interrupt Service Routine
@@ -239,7 +238,7 @@ def CHARGE (entry):
         relay_control(1) #CHARGE
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = batt_capacity * 2 #C rate seteado de 0.5C
+        set_C_rate = batt_capacity * 0.5 #C rate seteado de 0.5C
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
@@ -281,7 +280,7 @@ def DISCHARGE(entry):
     if init_flag == 1:
         relay_control(2) #DISCHARGE
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(3.5) #Descargando a 1C
+        Carga.fijar_corriente(0.25) #Descargando a 1C
         Carga.encender_carga()
         init_flag = 0
         timer_flag = 0 #Revisar
