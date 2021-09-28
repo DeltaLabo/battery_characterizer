@@ -62,7 +62,7 @@ df = pd.read_csv("/home/pi/Repositories/battery_characterizer/software/prueba_in
 outputCSV = pd.DataFrame(columns = ["Timestamp", "Voltage", "Current", "Power", "Temperature"])
 
 #Variables globales que se utilizará dentro de cada función
-state = 0 
+state = "INIT" 
 channel = df.iloc[0,0] #[Fila,columna] Variable global del canal (Canal 1 por default)
 volt = 1.0  
 current = 1.0 
@@ -75,6 +75,9 @@ prev_state = 0
 next_state_flag = 0
 cycles = 1
 cycle_counter = 0
+past_time = datetime.now()
+past_curr = 0
+total_capacity = 0
 spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
 max31855 = adafruit_max31855.MAX31855(spi, cs)
@@ -85,11 +88,13 @@ max31855 = adafruit_max31855.MAX31855(spi, cs)
 def statemachine (entry):
     global state #Se llama a la variable global que se definió 
     #afuera de las funciones 
-    switch = {0 : INIT, #Entre carga y descarga debería haber un wait de ciertos minutos (15 min)
-              1 : CHARGE,
-              2 : DISCHARGE,
-              3 : WAIT,
-              6 : END,    
+    switch = {"INIT" : INIT, #Entre carga y descarga debería haber un wait de ciertos minutos (15 min)
+              #"PRECHARGE" : PRECHARGE,
+              "CHARGE" : CHARGE,
+              "DISCHARGE" : DISCHARGE,
+              #"POSTDISCHARGE" : POSTDISCHARGE,
+              "WAIT" : WAIT,
+              "END" : END,    
     }         #switch será el diccionario donde se guarden los cuatro estados
     func = switch.get(state)
     return func(entry)
@@ -105,7 +110,7 @@ def INIT(entry):
     
     print ('''
                        '.`                                     `--`                 
-                 -``':>rr,                             '<\*!-` `'               
+                 -``':>rr,          relay_control1                   '<\*!-` `'               
                 ^-      -\kx"                       '*yT!       r               
                 x:         ~sKr`                  :uMx.         y               
                 rY           !Idv'              ^KZv`          _w               
@@ -143,11 +148,11 @@ def INIT(entry):
     #entry = input("Deberá digitar la letra 'a' para avanzar al siguiente estado: \n")
     #Aquí se definirá la condición para que la máquina pase de una estado a otro
     if cycles > 0:
-        state = 1
+        state = "CHARGE"
         init_flag = 1
         print("Avanzando al estado de CARGA...")
     else:
-        state = 0
+        state = "INIT"
         time.sleep (2)
         print("Se mantiene el estado inicial... Digite la cantidad de ciclos")
 
@@ -164,7 +169,7 @@ def poweroff(channel):
     Carga.apagar_canal()
     print("El sistema se ha apagado")
     time.sleep(10)
-    state = 6
+    state = "END"
 GPIO.add_event_detect(23, GPIO.RISING, callback=poweroff, bouncetime=1000)
 
 
@@ -184,35 +189,46 @@ def medicion():
     global state
     global outputCSV
     global max31855
+    global past_time
+    global past_curr
+    global total_capacity
 
-    tiempoActual = datetime.now()
-    print(tiempoActual,end=',')
-    if state == 1:
+    tiempo_actual = datetime.now()
+    print(tiempo_actual,end=',')
+    if state == "CHARGE":
         volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
         tempC = max31855.temperature
-    elif state == 2: 
+        
+    elif state == "DISCHARGE": 
         volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
         tempC = max31855.temperature
     print("{:06.3f},{:06.3f},{:06.3f}".format(volt, current,tempC))
     
-
     #Valores escritos en un csv
-    outputCSV = outputCSV.append({"Timestamp":tiempoActual, "Voltage":volt, "Current":current, "Power":power, "Temperature":tempC}, ignore_index=True)
+    outputCSV = outputCSV.append({"Timestamp":tiempo_actual, "Voltage":volt, "Current":current, "Power":power, "Temperature":tempC}, ignore_index=True)
     outputCSV.to_csv("/home/pi/Repositories/battery_characterizer/software/prueba_outputs2.csv")
+    
+    
+    
+    total_capacity += (tiempo_actual - past_time).total_seconds() * (current - past_curr)/2
+    past_time = tiempo_actual
+    past_curr = current
+    print(total_capacity)
     
 #Función para controlar módulo de relés (CH1 y CH2)    
 def relay_control(state):
-    if state == 1: #Charge - CH1
+    if state == "CHARGE": #Charge - CH1
+        print("Entré")
         GPIO.output(18,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(17,GPIO.HIGH)
         time.sleep(2)
-    elif state == 2: #Discharge - CH2
+    elif state == "DISCHARGE": #Discharge - CH2
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.HIGH)
         time.sleep(2)
-    elif state == 3: # Wait - Both Low
+    elif state == "WAIT": # Wait - Both Low
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.LOW)
@@ -235,13 +251,14 @@ def CHARGE (entry):
     batt_capacity = df.iloc[0,2] #Eliminarse. Ya está en línea 156
 
     if init_flag == 1:
-        relay_control(1) #CHARGE
+        relay_control(state) #CHARGE
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
         set_C_rate = batt_capacity * 0.5 #C rate seteado de 0.5C
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
+        time.sleep(1)
         init_flag = 0 #Cambia el init_flag de 1 a 0
         timer_flag = 0
 
@@ -255,8 +272,8 @@ def CHARGE (entry):
             Fuente.apagar_canal(channel)
             if next_state_flag  == 1:
                 next_state_flag = 0
-            prev_state = 1 #From CHARGE
-            state = 3 #To WAIT
+            prev_state = "CHARGE" #From CHARGE
+            state = "WAIT" #To WAIT
             init_flag = 1
             mintowait = 0.1 #Wait 10 min 
 
@@ -278,7 +295,7 @@ def DISCHARGE(entry):
     global next_state_flag #FLAG CAMBIO DE ESTADO
     ###################################################################
     if init_flag == 1:
-        relay_control(2) #DISCHARGE
+        relay_control(state) #DISCHARGE
         Carga.remote_sense("ON")
         Carga.fijar_corriente(0.25) #Descargando a 1C
         Carga.encender_carga()
@@ -295,8 +312,8 @@ def DISCHARGE(entry):
             Carga.apagar_carga()
             if next_state_flag == 1:
                 next_state_flag = 0
-            prev_state = 2 #From DISCHARGE
-            state = 3 #To WAIT
+            prev_state = "DISCHARGE" #From DISCHARGE
+            state = "WAIT" #To WAIT
             init_flag = 1
             mintowait = 10 # Wait 10 min    
     ##################################################################
@@ -321,11 +338,11 @@ def WAIT(entry):
         if counter >= (mintowait * 60) or next_state_flag == 1:
             if next_state_flag == 1:
                 next_state_flag = 0
-            if prev_state == 1: #CHARGE:
-                state = 2 #DISCHARGE
+            if prev_state == "CHARGE": #CHARGE:
+                state = "DISCHARGE" #DISCHARGE
                 print("Estado DISCHARGE") 
-            elif prev_state == 2: #DISCHARGE:
-                state = 6 #END
+            elif prev_state == "DISCHARGE": #DISCHARGE:
+                state = "END" #END
                 print("Estado END")    
     
 
@@ -333,14 +350,14 @@ def WAIT(entry):
 def END(entry):
     global cycle_counter
     print("Terminó el ciclo...")
-    state = 0 
+    state = "INIT" 
     cycle_counter += 1
 
 ######################## Programa Principal (loop de la máquina de estado) ########################
 t = threading.Timer(1.0, ISR)
 t.start() #Después de 5 segundos ejecutará lo de medición ()
 while cycles > cycle_counter:
-    statemachine(0)
+    statemachine("INIT")
     #cycle_counter += 0 #Ciclos aumentan cada vez
     #contador = contador +1 # Necesita múltiplos de 3 por alguna razón1
 print("Terminó el programa")
