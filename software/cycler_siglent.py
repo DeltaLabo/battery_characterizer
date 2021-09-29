@@ -113,6 +113,7 @@ def INIT(entry):
     global df
     global init_flag
     global cycles
+    global cycle_counter
     
     if cycles == 0:
         print ('''
@@ -155,6 +156,7 @@ def INIT(entry):
 
     state = "CHARGE"
     init_flag = 1
+    cycle_counter += 1 
     print("Avanzando al estado de CARGA...")
 
 def next_state(channel):
@@ -164,12 +166,14 @@ GPIO.add_event_detect(24, GPIO.RISING, callback=next_state, bouncetime=1000)
 
 def poweroff(channel):
     global state 
+    global end_flag
     GPIO.output(17, GPIO.LOW)
     GPIO.output(18, GPIO.LOW)
     Fuente.apagar_canal(channel)
     Carga.apagar_carga()
     print("El sistema se ha apagado")
     state = "END"
+    end_flag = 1
 GPIO.add_event_detect(22, GPIO.RISING, callback=poweroff, bouncetime=1000)
 
 
@@ -195,29 +199,35 @@ def medicion():
     global file_date
     global seconds
     global tempC
+    global channel
+    global cycle_counter
     tiempo_actual = datetime.now()
     deltat = (tiempo_actual - past_time).total_seconds()
     seconds += deltat
-    print(seconds,end=',')
     if state == "CHARGE":
         volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
     elif state == "DISCHARGE": 
         volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
     tempC = max31855.temperature #Measure Temp
     
+    if tempC >= 60:
+            poweroff(channel)
+            print("Cuidado! La celda ha excedido la T máxima de operación")
+    
     capacity +=  deltat * ((current + past_curr) / 7.2)
     past_time = tiempo_actual
     past_curr = current    
-    print("V = {:06.3f}, I = {:06.3f}, C = {:07.2f}, T = {:06.3f}".format(volt, current, capacity, tempC))
+    print("{:09.2f} c = {:02d} V = {:06.3f} I = {:06.3f} C = {:07.2f} T = {:06.3f}".format(seconds, cycle_counter, volt, current, capacity, tempC))
     base = "/home/pi/cycler_data/"
+    
     if state == "CHARGE":
         outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
         filename = base + "charge_data" + file_date + ".csv"
-        outputCSV.to_csv(filename) #Create csv for CHARGE
+        outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for CHARGE
     elif state == "DISCHARGE": 
         outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
         filename = base + "discharge_data" + file_date + ".csv"
-        outputCSV.to_csv(filename) #Create csv for DISCHARGE
+        outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for DISCHARGE
         
 #Función para controlar temperatura
 
@@ -279,18 +289,16 @@ def CHARGE (entry):
         if counter >= 1:
             medicion()
             counter = 0
-        if current <= (0.1) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
+        if current <= (0.098) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
             Fuente.apagar_canal(channel)
+            Fuente.toggle_4w()
             if next_state_flag  == 1:
                 next_state_flag = 0
             prev_state = "CHARGE" #From CHARGE
             state = "WAIT" #To WAIT
             init_flag = 1
-            mintowait = 10 #Wait 10 min
-        if tempC >= 62:
-            Fuente.apagar_canal(channel)
-            print("Cuidado con la T")
-            state = "END"
+            mintowait = 4 #Wait 10 min
+        
 
 ################# Se define la función que hará que la batería se descargue #########################
 
@@ -333,12 +341,8 @@ def DISCHARGE(entry):
             prev_state = "DISCHARGE" #From DISCHARGE
             state = "WAIT" #To WAIT
             init_flag = 1
-            mintowait = 10 # Wait 10 min
+            mintowait = 4 # Wait 10 min
             
-        if tempC >= 62:
-            Fuente.apagar_canal(channel)
-            print("Cuidado con la T")
-            state = "END"
     ##################################################################
      
 ################ Se define la función que esperará y retornará al estado inicial ####################
@@ -375,7 +379,6 @@ def END(entry):
     global end_flag
     global state
     print("Terminó el ciclo...")
-    cycle_counter += 1
     if cycle_counter >= cycles:
         end_flag = 1
     else:
