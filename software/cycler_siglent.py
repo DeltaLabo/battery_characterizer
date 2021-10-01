@@ -228,9 +228,6 @@ def medicion():
         outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
         filename = base + "discharge_data" + file_date + ".csv"
         outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for DISCHARGE
-        
-#Función para controlar temperatura
-
     
 #Función para controlar módulo de relés (CH1 y CH2)    
 def relay_control(state):
@@ -265,7 +262,7 @@ def CHARGE (entry):
     global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global past_time
-    global tempC
+    global seconds
     batt_capacity = df.iloc[0,2] #Eliminarse. Ya está en línea 156
 
     if init_flag == 1:
@@ -314,7 +311,9 @@ def DISCHARGE(entry):
     global df
     global timer_flag
     global init_flag
+    global past_time
     global counter
+    global seconds
     global next_state_flag #FLAG CAMBIO DE ESTADO
     ###################################################################
     if init_flag == 1:
@@ -341,7 +340,7 @@ def DISCHARGE(entry):
             prev_state = "DISCHARGE" #From DISCHARGE
             state = "WAIT" #To WAIT
             init_flag = 1
-            mintowait = 4 # Wait 10 min
+            mintowait = 4 # Wait 10 min.1 s = 2.5 s
             
     ##################################################################
      
