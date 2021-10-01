@@ -7,11 +7,11 @@ ds = pd.read_csv('C:/Repositories/battery_characterizer/soc_test/discharge_data2
 ds.columns = ['time','seconds','voltage','current','capacity','temperature']
 
 
-soc = ds.capacity/ds.capacity.max()
-print(soc)
-
-print(ds.seconds)
-
+ds.capacity = ds.capacity - ds.capacity.min()
+ds.seconds = ds.seconds - ds.seconds.min()
+#ds = ds.assign(capacity=capacity.values)
+#ds = ds.assign(capacity=capacity.values)
+soc = 1 - ds.capacity/ds.capacity.max()
 ds = ds.assign(soc=soc.values)
 print(ds.describe())
 fig = px.scatter(ds, x="soc", y="voltage")
