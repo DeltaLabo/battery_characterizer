@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-ds40 = pd.read_csv('FRDET_4.0V.csv')
+ds40 = pd.read_csv('FRDET40.csv')
 
 ds40.time = round(ds40.time * 60,0) #solo para pasarlo a segundos
 
@@ -10,7 +10,7 @@ power = bat40.apply(lambda row: row.ibat * row.vbat, axis=1)
 bat40 = bat40.assign(power=power.values)
 bat40.columns = ['time', 'current', 'voltage', 'power']
 
-ds35 = pd.read_csv('FRDET_3.5V.csv')
+ds35 = pd.read_csv('FRDET35.csv')
 
 ds35.time = round(ds35.time * 60,0) #solo para pasarlo a segundos
 
