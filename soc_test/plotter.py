@@ -2,16 +2,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 
-ds = pd.read_csv('discharge_data29_09_2021_19_13.csv')
+ds = pd.read_csv('C:/Repositories/battery_characterizer/soc_test/discharge_data29_09_2021_19_13.csv')
 
 batt18650 = ds#[['time','seconds','voltage','current','capacity','temperature']]
-batt18650.columns = ['time','seconds','voltage','current','capacity','temperature']
-print(batt18650.describe())
+batt18650.columns = ['Time','Seconds (s)','Voltage (V)','Current (A)','Capacity (mAh)','Temperature (C)']
+#print(batt18650.describe())
 
 
 
 
-fig = px.scatter(batt18650, x="time", y="voltage")
+fig = px.scatter(batt18650, x="Capacity (mAh)", y="Voltage (V)")
 fig.show()
 
 
