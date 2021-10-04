@@ -241,7 +241,7 @@ def relay_control(state):
         time.sleep(0.5)
         GPIO.output(18,GPIO.HIGH)
         time.sleep(2)
-    elif state == "WAIT": # Wait - Both Low
+    elif state == "WAIT":# Wait - Both Low
         GPIO.output(17,GPIO.LOW)
         time.sleep(0.5)
         GPIO.output(18,GPIO.LOW)
@@ -271,7 +271,7 @@ def CHARGE (entry):
         relay_control(state) #CHARGE
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = 0.1 #C rate seteado de C/35
+        set_C_rate = (0.5 * batt_capacity) #C rate seteado de C/35
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
@@ -289,7 +289,7 @@ def CHARGE (entry):
         if counter >= 1:
             medicion()
             counter = 0
-        if current <= (0.098) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
+        if current <= (0.1) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
             Fuente.apagar_canal(channel)
             Fuente.toggle_4w()
             if next_state_flag  == 1:
@@ -325,7 +325,7 @@ def DISCHARGE(entry):
     if init_flag == 1:
         relay_control(state) #DISCHARGE
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(0.1) #Descargando a C/35
+        Carga.fijar_corriente(3.5) #Descargando a C/35
         Carga.encender_carga()
         init_flag = 0
         past_time = datetime.now()
@@ -353,7 +353,6 @@ def DISCHARGE(entry):
     ##################################################################
      
 ################ Se define la función que esperará y retornará al estado inicial ####################
-
 def WAIT(entry):
     global state
     global mintowait
