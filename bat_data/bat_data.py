@@ -19,20 +19,8 @@ power = bat35.apply(lambda row: row.ibat * row.vbat, axis=1)
 bat35 = bat35.assign(power=power.values)
 bat35.columns = ['time', 'current', 'voltage', 'power']
 
-
-# plt.figure(figsize=[15,5])
-# plt.plot(bat40.time, bat40.voltage, label='voltage')
-# plt.xlabel('time(s)', fontsize=15)
-# plt.ylabel('voltage(V)', fontsize=15)
-# plt.legend()
-# plt.show()
-
-# plt.figure(figsize=[15,5])
-# plt.plot(bat40.time, bat40.current, label='current')
-# plt.xlabel('time(s)', fontsize=15)
-# plt.ylabel('current(A)', fontsize=15)
-# plt.legend()
-# plt.show()
+bat40.to_csv('bat40.csv', index=False)
+bat35.to_csv('bat35.csv', index=False)
 
 plt.figure(figsize=[15,5])
 plt.plot(bat40.time, bat40.power, label='power')
@@ -50,5 +38,3 @@ plt.show()
 
 
 
-bat40.to_csv('bat40.csv', index=False)
-bat35.to_csv('bat40.csv', index=False)
