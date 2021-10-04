@@ -249,20 +249,22 @@ def relay_control(state):
 
 ################# Se define la función que hará que la batería se cargue ############################
 def CHARGE (entry): 
+    global prev_state
     global state
     global channel
     global volt
     global current
     global power 
+    global capacity
     global df
     global init_flag
     global timer_flag
     global counter
-    global prev_state
     global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global past_time
     global seconds
+    global file_date
     batt_capacity = df.iloc[0,2] #Eliminarse. Ya está en línea 156
 
     if init_flag == 1:
@@ -273,12 +275,13 @@ def CHARGE (entry):
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
-        time.sleep(1)
         init_flag = 0 #Cambia el init_flag de 1 a 0
         past_time = datetime.now()
+        file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
         timer_flag = 0
         capacity = 0
         seconds = 0
+        
 
     if timer_flag == 1:
         timer_flag = 0
@@ -303,18 +306,21 @@ def CHARGE (entry):
 def DISCHARGE(entry):
     global prev_state
     global state
-    global mintowait
     global channel
     global volt
     global current
-    global power 
+    global power
+    global capacity #Faltó ponerlo para reiniciar la C en descarga
     global df
+    global init_flag  
     global timer_flag
-    global init_flag
-    global past_time
     global counter
-    global seconds
+    global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
+    global past_time
+    global seconds
+    global file_date
+
     ###################################################################
     if init_flag == 1:
         relay_control(state) #DISCHARGE
@@ -323,9 +329,11 @@ def DISCHARGE(entry):
         Carga.encender_carga()
         init_flag = 0
         past_time = datetime.now()
+        file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
         timer_flag = 0 #Revisar
         capacity = 0
         seconds = 0
+
         
     if timer_flag == 1:
         timer_flag = 0
