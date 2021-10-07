@@ -3,7 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 #Para descarga
-dsd = pd.read_csv('C:/Repositories/battery_characterizer/soc_test/discharge_data29_09_2021_19_13.csv')
+dsd = pd.read_csv('/home/pi/Repositories/battery_characterizer/soc_test/discharge_data29_09_2021_19_13.csv')
 dsd.columns = ['time','seconds','voltage','current','capacity','temperature']
 print("Antes de limpiar")
 print(dsd.describe())
@@ -14,8 +14,8 @@ dsd = dsd.assign(soc=soc.values)
 print("Después de limpiar")
 print(dsd.describe())
 
-
-dsc = pd.read_csv('C:/Repositories/battery_characterizer/soc_test/charge_data29_09_2021_19_13.csv')
+#Para carga
+dsc = pd.read_csv('/home/pi/Repositories/battery_characterizer/soc_test/charge_data29_09_2021_19_13.csv')
 dsc.columns = ['time','seconds','voltage','current','capacity','temperature']
 print("Antes de limpiar")
 print(dsc.describe())
