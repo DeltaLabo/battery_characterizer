@@ -86,21 +86,28 @@ ocv = (newdsc.voltage.values + newdsd.voltage.values)/2
 sococv = pd.DataFrame(data={"soc":soc,"ocv": ocv})
 sococv.to_csv('sococv.csv', index=False)
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=dsd.soc, y=dsd.voltage,
+R0 = ((newdsc.voltage.values - newdsd.voltage.values)/2)/0.1 #calcular el R para todos los puntos R=dV/i
+socR0 = pd.DataFrame(data={"soc":soc,"R0":R0})
+socR0.to_csv('socR0.csv', index=False)
+
+fig1 = px.scatter(socR0, x="soc", y="R0")
+fig1.show()
+
+fig2 = go.Figure()
+fig2.add_trace(go.Scatter(x=dsd.soc, y=dsd.voltage,
                     mode='lines',
                     name='Discharge @ C/35'))
-fig.add_trace(go.Scatter(x=newdsd.soc, y=newdsd.voltage,
+fig2.add_trace(go.Scatter(x=newdsd.soc, y=newdsd.voltage,
                     mode='lines',
                     name='Discharge Interpolation'))
-fig.add_trace(go.Scatter(x=dsc.soc, y=dsc.voltage,
+fig2.add_trace(go.Scatter(x=dsc.soc, y=dsc.voltage,
                     mode='lines',
                     name='Charge @ C/35'))
-fig.add_trace(go.Scatter(x=newdsc.soc, y=newdsc.voltage,
+fig2.add_trace(go.Scatter(x=newdsc.soc, y=newdsc.voltage,
                     mode='lines',
                     name='Charge Interpolation'))
-fig.add_trace(go.Scatter(x=sococv.soc, y=sococv.ocv,
+fig2.add_trace(go.Scatter(x=sococv.soc, y=sococv.ocv,
                     mode='lines',
                     name='Final SOC-OCV'))
 
-fig.show()
+fig2.show()
