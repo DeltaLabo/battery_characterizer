@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas.io.parsers import read_csv
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
@@ -17,6 +18,7 @@ def dsoc_interpolation(soc_data, volt_data, soc_in):
             volt_out = volt_data[i-1] + (volt_data[i] - volt_data[i-1]) * (soc_in - soc_data[i-1]) / (soc_data[i] - soc_data[i-1])
             break
     return volt_out
+
 
 #################################################################################
 ################################# PARA DESCARGA #################################
@@ -81,12 +83,10 @@ newdsc = newdsc.assign(voltage=new_voltc)
 
 soc = np.linspace(0,1,datapoints)
 ocv = (newdsc.voltage.values + newdsd.voltage.values)/2
-
-
 sococv = pd.DataFrame(data={"soc":soc,"ocv": ocv})
 sococv.to_csv('sococv.csv', index=False)
 
-R0 = ((newdsc.voltage.values - newdsd.voltage.values)/2)/0.1 #calcular el R para todos los puntos R=dV/i
+R0 = (newdsc.voltage.values - sococv.ocv.values)/0.1 #calcular el R para todos los puntos R=dV/i
 socR0 = pd.DataFrame(data={"soc":soc,"R0":R0})
 socR0.to_csv('socR0.csv', index=False)
 
