@@ -167,7 +167,7 @@ def PULSE(entry):
     if init_flag == 1:
         relay_control(state)
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(batt_capacity * 1) #0.25C
+        Carga.fijar_corriente(batt_capacity * 1) #DISCHARGE @1C
         Carga.encender_carga()
         #past_time = datetime.now()
         #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -187,7 +187,7 @@ def PULSE(entry):
                 prev_state = "PULSE"
                 state = "REST"
                 init_flag = 1
-                past_volt = volt
+                past_volt = volt #Para la primera medición, past_volt = últio valor medido de volt
                 counter = 0
         else:
             #Carga.fijar_voltaje(2.5)
@@ -216,13 +216,14 @@ def REST(entry):
         #print(counter)
         # if counter >= 1: # Empieza a medir 1s después de entrar a REST
         ###############################
-        if counter == 60:
+        if counter == 60: #Compare last 60 values 
             curr_volt /= 60
             deltavolt = ((curr_volt - past_volt) * 100) / past_volt
+            print(deltavolt)
             counter = 0
             past_volt = curr_volt
             curr_volt = 0
-            if deltavolt <= 0.1:
+            if deltavolt <= 0.05:
                 print("Iniciando próximo pulso de descarga")
                 state = "PULSE"
                 init_flag = 1
