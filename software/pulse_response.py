@@ -25,7 +25,7 @@ for i in range(3):
         fuente = rm.open_resource(rm.list_resources()[i])
         print("Fuente SPD1305X encontrada")
 
-Fuente = controller2.Fuente(fuente, "SPD1305", tipoFuente = True)
+#Fuente = controller2.Fuente(fuente, "SPD1305", tipoFuente = True)
 Carga = controller2.Carga(carga, "DL3021")
 
 #Ser RPi outputs
@@ -45,7 +45,7 @@ state = "INIT"
 init_flag = 1
 timer_flag = 0
 counter = 0
-batt_capacity = 3500 #mAh
+batt_capacity = 3.5 #Ah
 seconds = 0
 past_time = 0
 volt = 0
@@ -59,11 +59,11 @@ volt_counter = 0
 prev_state = 0
 past_time = datetime.now()
 file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
-spi = board.SPI #Estas pueden cambiarse para usar
+spi = board.SPI() #Estas pueden cambiarse para usar
 cs = digitalio.DigitalInOut(board.D5) #RPi.GPIO
 max31855 = adafruit_max31855.MAX31855(spi,cs)
 
-def statemachine ():
+def statemachine(entry):
     global state
     switch = {"INIT" : INIT,
               "PULSE" : PULSE,
@@ -71,7 +71,7 @@ def statemachine ():
               "END" : END,    
     }
     func = switch.get(state)
-    return func() 
+    return func(entry) 
 
 
 def ISR(): #Interrupt Service Routine
@@ -80,7 +80,7 @@ def ISR(): #Interrupt Service Routine
     t.start()
     timer_flag = 1 #timer_flag pasa a 1(flag up)
 
-def poweroff():
+def poweroff(channel):
     global state
     global end_flag
     GPIO.output(17, GPIO.LOW)
@@ -103,7 +103,7 @@ def measure():
     global past_volt
     global deltavolt
     global curr_volt
-    global volt_counter
+    global counter
 
     tiempo_actual = datetime.now()
     deltat = (tiempo_actual - past_time).total_seconds()
@@ -115,23 +115,11 @@ def measure():
         poweroff()
         print("CUIDADO! La celda ha excedido para Tmáx")
 
-    ####################################################
-    if state == "REST":
-        curr_volt += volt #Current value of the voltage 
-        volt_counter += 1 #Este counter puede ser diferente al ya definido?
-    #past_volt también se está acumulando?
-        if volt_counter == 60:
-            deltavolt = (curr_volt - past_volt) * 100 / past_volt
-            volt_counter = 0
-            past_volt = curr_volt
-            curr_volt = 0
-
-    ####################################################
     past_time = tiempo_actual
     print("s = {:09.2f} V = {:06.3f} I = {:06.3f} T = {:06.3f}".format(seconds, volt, current, tempC))
     #Añadir valores constantement en el csv
     outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Temperature":tempC}, ignore_index=True)
-    filename = 'C:/Repositories/battery_characterizer/coulomb_tests' + 'discharge_pulse' + file_date + '.csv'
+    filename = '/home/pi/cycler_data/' + 'discharge_pulse' + file_date + '.csv' #For Windows: C:/Repositories/battery_characterizer/coulomb_tests/
     outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False)
 
 def relay_control(state):
@@ -142,103 +130,106 @@ def relay_control(state):
         GPIO.output(18, GPIO.LOW)
         #time.sleep(0.5)
 
-def INIT():
+def INIT(entry):
     global timer_flag
     global counter
     global state
     global init_flag
+    global past_time
     
-    print("Pronto empezará el pulso de descarga...")
-    if timer_flag == 1:
-        timer_flag = 0
-        counter += 1
-        print(counter)
-        if counter >= (2 * 60): #Wait approx 2 min to start discharge
-            state = "PULSE"
-            init_flag = 1
-            print("Avanzando al pulso de descarga...")
-    
+    d = str(input("¿Desea iniciar el proceso de pulsos de descarga a la batería? (y/n): \n"))
+    if d == "y":
+        print("Pronto empezará el pulso de descarga...")
+        state = "PULSE"
+        init_flag = 1
+        past_time = datetime.now()
+    else:
+        print("El proceso no comenzará. Si desea iniciar, digite 'y'.")
+        state = "INIT"
 
-def PULSE():
+def PULSE(entry):
     global state
     global batt_capacity
     global timer_flag
     global counter
     global volt
+    global past_volt
+    global current
     global file_date
     global seconds
     global init_flag
     global past_time
     global timer_flag
     global prev_state
+    global seconds
+    dt = 60 #Discharge time (seconds)
     
     if init_flag == 1:
         relay_control(state)
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(batt_capacity * 0.25) #0.25C
+        Carga.fijar_corriente(batt_capacity * 1) #0.25C
         Carga.encender_carga()
+        #past_time = datetime.now()
+        #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
         init_flag = 0
-        past_time = datetime.now()
-        file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
+        #timer_flag = 0
+        counter = 0
         timer_flag = 0
-        seconds = 0
+        #seconds = 0 Interesa ver la gráfica desde que se empieza en el INIT
        
     if timer_flag == 1:
         timer_flag = 0
-        counter += 1
-        if counter >= 1:
-            measure()
-            counter = 0
-        if counter <= (10 * 60): #Discharge pulse of 10 min
-            print("Vmin = {:06.3f} t = {:09.2f}".format(volt, seconds))
-            Carga.apagar_carga()
-            prev_state = "PULSE"
-            state = "REST"
-            #Esperar 1 s para medir
-
-        if volt <= (2.5):
-            Carga.fijar_voltaje(2.5)
-#Lo siguiente debería ir en un función aparte?
-            if current <= (0.1):
+        counter += 1 
+        measure()
+        if volt > 2.5:
+            if counter >= dt:
                 Carga.apagar_carga()
-                state = "END"
+                prev_state = "PULSE"
+                state = "REST"
+                init_flag = 1
+                past_volt = volt
+                counter = 0
+        else:
+            #Carga.fijar_voltaje(2.5)
+#Lo siguiente debería ir en un función aparte?
+            #if current <= (0.1):
+            Carga.apagar_carga()
+            state = "END"
 
-def REST():
+def REST(entry):
     global timer_flag
     global counter
     global seconds
     global state
     global init_flag
     global past_volt
-    global deltavolt
     global curr_volt
-    global volt_counter
 
-    #seconds = 0
-    curr_volt += volt #Current value of the voltage 
-    volt_counter += 1 #Este counter puede ser diferente al ya definido?
+    #curr_volt += volt #Current value of the voltage 
+    #volt_counter += 1 #Este counter puede ser diferente al ya definido?
     #past_volt también se está acumulando?
     
     if timer_flag == 1:
         timer_flag = 0
         counter += 1
-        print(counter)
-        if counter >=1: # Empieza a medir 1s después de entrar a REST
-            measure()
+        measure()
+        #print(counter)
+        # if counter >= 1: # Empieza a medir 1s después de entrar a REST
+        ###############################
+        if counter == 60:
+            curr_volt /= 60
+            deltavolt = ((curr_volt - past_volt) * 100) / past_volt
             counter = 0
-            ###############################
-            # if volt_counter == 60:
-            #     deltavolt = (curr_volt - past_volt) * 100 / past_volt
-            #     volt_counter = 0
-            #     past_volt = curr_volt
-            #     curr_volt = 0
-            ###############################
-            if deltavolt <= 1:
+            past_volt = curr_volt
+            curr_volt = 0
+            if deltavolt <= 0.1:
                 print("Iniciando próximo pulso de descarga")
                 state = "PULSE"
                 init_flag = 1
+        ###############################
+        
 
-def END():
+def END(entry):
     global end_flag
     print("Se ha descarga la batería por completo...")
     end_flag = 1

@@ -71,11 +71,11 @@ current = 1.0
 power = 1.0 
 timer_flag = 0
 init_flag = 1
-counter = 0
 mintowait = 0
 prev_state = 0
 next_state_flag = 0
 cycles = 0
+counter = 0
 cycle_counter = 0
 past_time = datetime.now()
 past_curr = 0
@@ -259,7 +259,6 @@ def CHARGE (entry):
     global df
     global init_flag
     global timer_flag
-    global counter
     global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global past_time
@@ -282,13 +281,9 @@ def CHARGE (entry):
         capacity = 0
         seconds = 0
         
-
     if timer_flag == 1:
         timer_flag = 0
-        counter +=  1
-        if counter >= 1:
-            medicion()
-            counter = 0
+        medicion()
         if current <= (0.098) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
             Fuente.apagar_canal(channel)
             Fuente.toggle_4w()
@@ -314,7 +309,6 @@ def DISCHARGE(entry):
     global df
     global init_flag  
     global timer_flag
-    global counter
     global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global past_time
@@ -327,20 +321,16 @@ def DISCHARGE(entry):
         Carga.remote_sense("ON")
         Carga.fijar_corriente(0.1) #Descargando a C/35
         Carga.encender_carga()
-        init_flag = 0
         past_time = datetime.now()
         file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
         timer_flag = 0 #Revisar
         capacity = 0
         seconds = 0
+        init_flag = 0
 
-        
     if timer_flag == 1:
         timer_flag = 0
-        counter += 1
-        if counter >= 1:
-            medicion()
-            counter = 0
+        medicion()
         if volt <= (2.5) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
             Carga.apagar_carga()
             if next_state_flag == 1:
@@ -358,25 +348,27 @@ def WAIT(entry):
     global mintowait
     global timer_flag
     global init_flag
-    global counter
     global prev_state
     global next_state_flag #FLAG CAMBIO DE ESTADO
-    
-    relay_control(state)
-    
+    global counter
+    if init_flag == 1:
+        relay_control(state)
+        counter = 0 
+        init_flag = 0
     if timer_flag == 1: #FLAG CAMBIO DE ESTADO
-        timer_flag = 0
         counter += 1
+        timer_flag = 0
         print(counter) #, end='\r')
-        if counter >= (mintowait * 60) or next_state_flag == 1:
-            if next_state_flag == 1:
-                next_state_flag = 0
-            if prev_state == "CHARGE": #CHARGE:
-                state = "DISCHARGE" #DISCHARGE
-                print("Estado DISCHARGE") 
-            elif prev_state == "DISCHARGE": #DISCHARGE:
-                state = "END" #END
-                print("Estado END")    
+    if counter >= (mintowait * 60) or next_state_flag == 1:
+        if next_state_flag == 1:
+            next_state_flag = 0
+        if prev_state == "CHARGE": #CHARGE:
+            state = "DISCHARGE" #DISCHARGE
+            print("Estado DISCHARGE") 
+        elif prev_state == "DISCHARGE": #DISCHARGE:
+            state = "END" #END
+            print("Estado END")  
+        init_flag = 1
     
 
 ####Función final. Apagará canal cuando se hayan cumplido ciclos o reiniciará
