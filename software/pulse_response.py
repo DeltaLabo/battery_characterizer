@@ -54,7 +54,6 @@ tempC = 0
 end_flag = 0
 curr_volt = 0
 past_volt = 0
-deltavolt = 0
 volt_counter = 0
 prev_state = 0
 past_time = datetime.now()
@@ -101,7 +100,6 @@ def measure():
     global outputCSV
     global file_date
     global past_volt
-    global deltavolt
     global curr_volt
     global counter
 
@@ -119,7 +117,7 @@ def measure():
     print("s = {:09.2f} V = {:06.3f} I = {:06.3f} T = {:06.3f}".format(seconds, volt, current, tempC))
     #Añadir valores constantement en el csv
     outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Temperature":tempC}, ignore_index=True)
-    filename = '/home/pi/cycler_data/' + 'discharge_pulse' + file_date + '.csv' #For Windows: C:/Repositories/battery_characterizer/coulomb_tests/
+    filename = '/home/pi/pulse_discharges/' + 'discharge_pulse' + file_date + '.csv' #For Windows: C:/Repositories/battery_characterizer/coulomb_tests/
     outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False)
 
 def relay_control(state):
@@ -162,12 +160,12 @@ def PULSE(entry):
     global timer_flag
     global prev_state
     global seconds
-    dt = 60 #Discharge time (seconds)
+    dt = 60 #Discharge time (in seconds)
     
     if init_flag == 1:
         relay_control(state)
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(batt_capacity * 1) #DISCHARGE @1C
+        Carga.fijar_corriente(batt_capacity / 35) #DISCHARGE @1C
         Carga.encender_carga()
         #past_time = datetime.now()
         #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -187,7 +185,7 @@ def PULSE(entry):
                 prev_state = "PULSE"
                 state = "REST"
                 init_flag = 1
-                past_volt = volt #Para la primera medición, past_volt = últio valor medido de volt
+                past_volt = volt #Para la primera medición, past_volt = último valor medido de volt
                 counter = 0
         else:
             #Carga.fijar_voltaje(2.5)
@@ -204,22 +202,20 @@ def REST(entry):
     global init_flag
     global past_volt
     global curr_volt
+    global volt
 
-    #curr_volt += volt #Current value of the voltage 
-    #volt_counter += 1 #Este counter puede ser diferente al ya definido?
-    #past_volt también se está acumulando?
-    
     if timer_flag == 1:
         timer_flag = 0
         counter += 1
         measure()
-        #print(counter)
-        # if counter >= 1: # Empieza a medir 1s después de entrar a REST
-        ###############################
+        curr_volt += volt # current_voltage is accumulating in the REST state
+        #print("Debería acumularse:", curr_volt)
         if counter == 60: #Compare last 60 values 
-            curr_volt /= 60
-            deltavolt = ((curr_volt - past_volt) * 100) / past_volt
-            print(deltavolt)
+            curr_volt = curr_volt / 60 
+            print("curr_volt:", curr_volt)
+            print("past_volt:", past_volt)
+            deltavolt = abs((curr_volt - past_volt) * 100 / past_volt)
+            print("DeltaVolt:", deltavolt)
             counter = 0
             past_volt = curr_volt
             curr_volt = 0
@@ -227,15 +223,13 @@ def REST(entry):
                 print("Iniciando próximo pulso de descarga")
                 state = "PULSE"
                 init_flag = 1
-        ###############################
-        
 
 def END(entry):
     global end_flag
     print("Se ha descarga la batería por completo...")
     end_flag = 1
 
-#################### MAIN PROGRAM ####################
+#################### MAIN LOOP ####################
 t = threading.Timer(1.0, ISR)
 t.start()
 while end_flag == 0:
