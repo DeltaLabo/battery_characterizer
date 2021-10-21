@@ -142,13 +142,17 @@ def INIT(entry):
     global state
     global init_flag
     global past_time
+    global volt
+    global past_volt
     
     d = str(input("¿Desea iniciar el proceso de pulsos de descarga a la batería? (y/n): \n"))
     if d == "y":
-        print("Pronto empezará el pulso de descarga...")
-        state = "PULSE"
+        print("Inicio...")
+        state = "REST"
         init_flag = 1
         past_time = datetime.now()
+        measure()
+        past_volt = volt
     else:
         print("El proceso no comenzará. Si desea iniciar, digite 'y'.")
         state = "INIT"
@@ -169,7 +173,7 @@ def PULSE(entry):
     global prev_state
     global seconds
     global tag
-    dt = 20 #Discharge time (in seconds)
+    dt = 120 #Discharge time (in seconds)
     
     if init_flag == 1:
         relay_control(state)
