@@ -38,7 +38,7 @@ GPIO.output(17,GPIO.LOW)
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #Shutdown Button
 
 #Definición archivo csv de las mediciones
-outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Voltage", "Current", "Temperature"])
+outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Tag", "Voltage", "Current", "Capacity", "Temperature"])
 
 #Global variables definition 
 state = "INIT"
@@ -56,6 +56,7 @@ curr_volt = 0
 past_volt = 0
 volt_counter = 0
 prev_state = 0
+tag = 0
 past_time = datetime.now()
 file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
 spi = board.SPI() #Estas pueden cambiarse para usar
@@ -92,6 +93,8 @@ GPIO.add_event_detect(22, GPIO.RISING, callback=poweroff, bouncetime=1000)
 
 def measure():
     global past_time
+    global past_curr
+    global capacity
     global seconds
     global volt
     global current
@@ -102,7 +105,8 @@ def measure():
     global past_volt
     global curr_volt
     global counter
-
+    global tag
+    
     tiempo_actual = datetime.now()
     deltat = (tiempo_actual - past_time).total_seconds()
     seconds += deltat
@@ -112,11 +116,13 @@ def measure():
     if tempC >= 60:
         poweroff()
         print("CUIDADO! La celda ha excedido para Tmáx")
-
+        
+    capacity +=  deltat * ((current + past_curr) / 7.2) #documentar porque 7.2 sino se te va a olvidar
     past_time = tiempo_actual
-    print("s = {:09.2f} V = {:06.3f} I = {:06.3f} T = {:06.3f}".format(seconds, volt, current, tempC))
+    past_curr = current  
+    print("s = {:09.2f} tag = {:1d} V = {:06.3f} I = {:06.3f} Q = {:07.2f} T = {:06.3f}".format(seconds, tag, volt, current, capacity, tempC))
     #Añadir valores constantement en el csv
-    outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Temperature":tempC}, ignore_index=True)
+    outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Tag":tag, "Voltage":volt, "Current":current, "Capacity":capacity, "Temperature":tempC}, ignore_index=True)
     filename = '/home/pi/pulse_discharges/' + 'discharge_pulse' + file_date + '.csv' #For Windows: C:/Repositories/battery_characterizer/coulomb_tests/
     outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False)
 
@@ -160,12 +166,13 @@ def PULSE(entry):
     global timer_flag
     global prev_state
     global seconds
-    dt = 60 #Discharge time (in seconds)
+    global tag
+    dt = 20 #Discharge time (in seconds)
     
     if init_flag == 1:
         relay_control(state)
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(batt_capacity / 35) #DISCHARGE @1C
+        Carga.fijar_corriente(batt_capacity * 1) #DISCHARGE @1C
         Carga.encender_carga()
         #past_time = datetime.now()
         #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -173,6 +180,7 @@ def PULSE(entry):
         #timer_flag = 0
         counter = 0
         timer_flag = 0
+        tag = 1
         #seconds = 0 Interesa ver la gráfica desde que se empieza en el INIT
        
     if timer_flag == 1:
@@ -187,6 +195,7 @@ def PULSE(entry):
                 init_flag = 1
                 past_volt = volt #Para la primera medición, past_volt = último valor medido de volt
                 counter = 0
+                tag = 0
         else:
             #Carga.fijar_voltaje(2.5)
 #Lo siguiente debería ir en un función aparte?
@@ -203,6 +212,7 @@ def REST(entry):
     global past_volt
     global curr_volt
     global volt
+    global tag
 
     if timer_flag == 1:
         timer_flag = 0
@@ -214,12 +224,12 @@ def REST(entry):
             curr_volt = curr_volt / 60 
             print("curr_volt:", curr_volt)
             print("past_volt:", past_volt)
-            deltavolt = abs((curr_volt - past_volt) * 100 / past_volt)
+            deltavolt = abs(((curr_volt - past_volt) * 100) / past_volt)
             print("DeltaVolt:", deltavolt)
             counter = 0
             past_volt = curr_volt
             curr_volt = 0
-            if deltavolt <= 0.05:
+            if deltavolt <= 0.01:
                 print("Iniciando próximo pulso de descarga")
                 state = "PULSE"
                 init_flag = 1

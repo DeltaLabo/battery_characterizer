@@ -83,6 +83,7 @@ capacity = 0
 tempC = 0
 seconds = 0
 end_flag = 0
+charge_only  = 0
 file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
 spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
@@ -114,6 +115,7 @@ def INIT(entry):
     global init_flag
     global cycles
     global cycle_counter
+    global charge_only
     
     if cycles == 0:
         print ('''
@@ -153,7 +155,10 @@ def INIT(entry):
                    ``-"=:`                              '!!_.`                  
         ''')
         cycles = int(input("Digite la cantidad de ciclos de carga/descarga de la batería: \n"))
-
+    
+    if input("Desea realizar solo carga: \n") == 'y':
+        charge_only = 1
+        print("Solo CARGA...")
     state = "CHARGE"
     init_flag = 1
     cycle_counter += 1 
@@ -214,10 +219,10 @@ def medicion():
             poweroff(channel)
             print("Cuidado! La celda ha excedido la T máxima de operación")
     
-    capacity +=  deltat * ((current + past_curr) / 7.2)
+    capacity +=  deltat * ((current + past_curr) / 7.2) #documentar porque 7.2 sino se te va a olvidar
     past_time = tiempo_actual
     past_curr = current    
-    print("{:09.2f} c = {:02d} V = {:06.3f} I = {:06.3f} C = {:07.2f} T = {:06.3f}".format(seconds, cycle_counter, volt, current, capacity, tempC))
+    print("{:09.2f} c = {:02d} V = {:06.3f} I = {:06.3f} Q = {:07.2f} T = {:06.3f}".format(seconds, cycle_counter, volt, current, capacity, tempC))
     base = "/home/pi/cycler_data/"
     
     if state == "CHARGE":
@@ -270,7 +275,7 @@ def CHARGE (entry):
         relay_control(state) #CHARGE
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = (0.1) #C rate seteado de C/35
+        set_C_rate = (1.75) #C rate seteado de C/35
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
@@ -351,6 +356,7 @@ def WAIT(entry):
     global prev_state
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global counter
+    global charge_only
     if init_flag == 1:
         relay_control(state)
         counter = 0 
@@ -363,8 +369,12 @@ def WAIT(entry):
         if next_state_flag == 1:
             next_state_flag = 0
         if prev_state == "CHARGE": #CHARGE:
-            state = "DISCHARGE" #DISCHARGE
-            print("Estado DISCHARGE") 
+            if charge_only == 0:
+                state = "DISCHARGE" #DISCHARGE
+                print("Estado DISCHARGE") 
+            else:
+                state = "END" #END
+                print("Estado END")  
         elif prev_state == "DISCHARGE": #DISCHARGE:
             state = "END" #END
             print("Estado END")  
