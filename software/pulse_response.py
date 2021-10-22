@@ -178,7 +178,7 @@ def PULSE(entry):
     if init_flag == 1:
         relay_control(state)
         Carga.remote_sense("ON")
-        Carga.fijar_corriente(batt_capacity * 1) #DISCHARGE @1C
+        Carga.fijar_corriente(batt_capacity * 0.5) #DISCHARGE @0.5C
         Carga.encender_carga()
         #past_time = datetime.now()
         #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
