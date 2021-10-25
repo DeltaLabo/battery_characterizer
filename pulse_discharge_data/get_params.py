@@ -8,7 +8,7 @@ print(ds.head())
 
 plt.figure(figsize=[15,5])
 plt.plot(ds.time, ds.voltage, label='voltage')
-plt.plot(ds.time, ds.tag, label='tag')
+#plt.plot(ds.time, ds.tag, label='tag')
 plt.xlabel('time(s)', fontsize=15)
 plt.ylabel('voltage(V)', fontsize=15)
 plt.legend()

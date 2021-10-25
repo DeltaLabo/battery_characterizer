@@ -1,6 +1,7 @@
 '''
 @file Ciclador de baterías
 @author Diego Fernández Arias
+@author Juan J. Rojas
 @date Sep 28 2021
 Instituto Tecnológico de Costa Rica
 Laboratorio Delta

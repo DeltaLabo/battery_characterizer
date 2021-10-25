@@ -24,7 +24,7 @@ def dsoc_interpolation(soc_data, volt_data, soc_in):
 ################################# PARA DESCARGA #################################
 #################################################################################
 
-dsd = pd.read_csv('C:/Repositories/battery_characterizer/soc_test/discharge_data29_09_2021_19_13.csv')#Upload csv
+dsd = pd.read_csv('discharge_data29_09_2021_19_13.csv')#Upload csv
 dsd.columns = ['time','seconds','voltage','current','capacity','temperature']
 
 # Limpiando los datos PARA DESCARGA
@@ -57,7 +57,7 @@ newdsd = newdsd.assign(voltage=new_voltd)
 ################################### PARA CARGA ###################################
 ##################################################################################
 
-dsc = pd.read_csv('C:/Repositories/battery_characterizer/soc_test/charge_data29_09_2021_19_13.csv')#Upload csv
+dsc = pd.read_csv('charge_data29_09_2021_19_13.csv')#Upload csv
 dsc.columns = ['time','seconds','voltage','current','capacity','temperature']
 
 # Limpiando los datos PARA CARGA

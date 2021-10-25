@@ -1,6 +1,6 @@
 '''
 Code to send and measure a pulse response in a discharge process of a 18650 li-ion battery
-Diego Fernández Arias
+Diego Fernández Arias and Juan J. Rojas
 Laboratorio Delta
 
 '''

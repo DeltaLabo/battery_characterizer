@@ -1,5 +1,5 @@
 ############Código para ciclar baterías en un rango de tensión y corriente definidos############
-# Diego Fernández Arias
+# Diego Fernández Arias y Juan J. Rojas
 # Instituto Tecnológico de Costa Rica
 import pyvisa
 import controller2
