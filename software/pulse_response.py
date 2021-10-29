@@ -144,7 +144,7 @@ def INIT(entry):
     global past_time
     global volt
     global past_volt
-    
+    Carga.remote_sense("ON")
     d = str(input("¿Desea iniciar el proceso de pulsos de descarga a la batería? (y/n): \n"))
     if d == "y":
         print("Inicio...")
@@ -153,12 +153,14 @@ def INIT(entry):
         past_time = datetime.now()
         measure()
         past_volt = volt
+        
     else:
         print("El proceso no comenzará. Si desea iniciar, digite 'y'.")
         state = "INIT"
 
 def PULSE(entry):
     global state
+    global channel
     global batt_capacity
     global timer_flag
     global counter
@@ -177,8 +179,7 @@ def PULSE(entry):
     
     if init_flag == 1:
         relay_control(state)
-        Carga.remote_sense("ON")
-        Carga.fijar_corriente(batt_capacity * 0.5) #DISCHARGE @0.5C
+        Carga.fijar_corriente(batt_capacity * 0.25) #DISCHARGE @0.5C
         Carga.encender_carga()
         #past_time = datetime.now()
         #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -206,8 +207,8 @@ def PULSE(entry):
             #Carga.fijar_voltaje(2.5)
 #Lo siguiente debería ir en un función aparte?
             #if current <= (0.1):
-            Carga.apagar_carga()
-            state = "END"
+            poweroff(channel) # lo manda a END
+            #state = "END"
 
 def REST(entry):
     global timer_flag
