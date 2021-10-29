@@ -324,7 +324,7 @@ def DISCHARGE(entry):
     ###################################################################
     if init_flag == 1:
         relay_control(state) #DISCHARGE
-        Carga.remote_sense("ON")
+        Carga.remote_sense(True)
         Carga.fijar_corriente(0.1) #Descargando a C/35
         Carga.encender_carga()
         past_time = datetime.now()

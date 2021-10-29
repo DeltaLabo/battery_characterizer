@@ -1,8 +1,10 @@
 '''
 Code to send and measure a pulse response in a discharge process of a 18650 li-ion battery
-Diego Fernández Arias and Juan J. Rojas
+@ Authors Diego Fernández Arias and Juan J. Rojas
 Laboratorio Delta
 
+Only parameter that needs to be changed in according to necessity is
+Carga.fijar_corriente(batt_capacity * x) in the pulse function
 '''
 import controller2 #Ponerlos en las mismas carpetas
 import pyvisa
@@ -82,12 +84,13 @@ def ISR(): #Interrupt Service Routine
     t.start()
     timer_flag = 1 #timer_flag pasa a 1(flag up)
 
-def poweroff(channel):
+def poweroff(self): # NO ESTÁ FUNCIONANDO (takes 0 positional arguments but 1 was given)
     global state
     global end_flag
     GPIO.output(17, GPIO.LOW)
     GPIO.output(18, GPIO.LOW)
     Carga.apagar_carga()
+    Carga.remote_sense(False)
     print("El sistema se ha detenido...")
     state = "END"
     end_flag = 1
@@ -144,7 +147,7 @@ def INIT(entry):
     global past_time
     global volt
     global past_volt
-    Carga.remote_sense("ON")
+    Carga.remote_sense(True)
     d = str(input("¿Desea iniciar el proceso de pulsos de descarga a la batería? (y/n): \n"))
     if d == "y":
         print("Inicio...")
@@ -160,7 +163,6 @@ def INIT(entry):
 
 def PULSE(entry):
     global state
-    global channel
     global batt_capacity
     global timer_flag
     global counter
@@ -179,7 +181,7 @@ def PULSE(entry):
     
     if init_flag == 1:
         relay_control(state)
-        Carga.fijar_corriente(batt_capacity * 0.25) #DISCHARGE @0.5C
+        Carga.fijar_corriente(batt_capacity * 1.5) #SET DISCHARGE RATE
         Carga.encender_carga()
         #past_time = datetime.now()
         #file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -207,7 +209,7 @@ def PULSE(entry):
             #Carga.fijar_voltaje(2.5)
 #Lo siguiente debería ir en un función aparte?
             #if current <= (0.1):
-            poweroff(channel) # lo manda a END
+            poweroff() # lo manda a END
             #state = "END"
 
 def REST(entry):
