@@ -17,12 +17,22 @@ halfC = halfC.assign(soc=halfCsoc.values)
 halfCreltime = halfC.time/halfC.time.max()
 halfC = halfC.assign(reltime=halfCreltime.values)
 print(halfC.head())
+quarterC = pd.read_csv('discharge_pulse_0.25C.csv')
+quarterC.columns = ['timestamp', 'time', 'tag', 'voltage', 'current', 'capacity', 'temprerature' ]
+quarterC = quarterC.drop('timestamp', axis=1)
+quarterCsoc = 1 - quarterC.capacity/oneC.capacity.max()
+quarterC = quarterC.assign(soc=quarterCsoc.values)
+quarterCreltime = quarterC.time/quarterC.time.max()
+quarterC = quarterC.assign(reltime=quarterCreltime.values)
+print(halfC.head())
+
 
 
 plt.figure(figsize=[15,5])
 plt.plot(oneC.reltime, oneC.voltage, label='1.0C')
 #plt.plot(oneC.time, oneC.soc, label='1.0C')
 plt.plot(halfC.reltime, halfC.voltage, label='0.5C')
+plt.plot(quarterC.reltime, quarterC.voltage, label='0.5C')
 plt.xlabel('relative time', fontsize=15)
 plt.ylabel('voltage(V)', fontsize=15)
 plt.legend()
