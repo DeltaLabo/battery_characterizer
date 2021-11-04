@@ -140,6 +140,11 @@ class Carga:  # Esta clase describe cada neurona
     def fijar_potencia(self, resistencia: float):
         self.carga.write(":SOUR:POW:LEV:IMM {}".format(resistencia))
         return self.carga.query(":SOUR:POW:LEV:IMM?")
+        
+    # Set range to be 4 A (low range) or 40 A (high range)
+    def set_range(self, corriente: int):
+        self.carga.write(":SOUR:CURR:RANG {}".format(corriente))
+        return self.carga.query("SOUR:CURR:RANG?")
     
     # Set sensor terminals    
     def remote_sense(self,state):

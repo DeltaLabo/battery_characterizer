@@ -84,7 +84,7 @@ def ISR(): #Interrupt Service Routine
     t.start()
     timer_flag = 1 #timer_flag pasa a 1(flag up)
 
-def poweroff(self): # NO ESTÁ FUNCIONANDO (takes 0 positional arguments but 1 was given)
+def poweroff(gpio): # NO ESTÁ FUNCIONANDO (takes 0 positional arguments but 1 was given)
     global state
     global end_flag
     GPIO.output(17, GPIO.LOW)
@@ -181,6 +181,7 @@ def PULSE(entry):
     
     if init_flag == 1:
         relay_control(state)
+        Carga.set_range(40)
         Carga.fijar_corriente(batt_capacity * 1.5) #SET DISCHARGE RATE
         Carga.encender_carga()
         #past_time = datetime.now()
