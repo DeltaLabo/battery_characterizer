@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
-datapoints = 1000
+datapoints = 101
 
 def dsoc_interpolation(soc_data, volt_data, soc_in):
     for i in range(len(soc_data)-1):# soc_in.max()):
@@ -14,8 +14,8 @@ def dsoc_interpolation(soc_data, volt_data, soc_in):
         if soc_in == 1:
             volt_out = volt_data[len(soc_data)-1]
             break
-        if soc_data[i] >= soc_in and soc_data[i-1] < soc_in: #Función de interpolación
-            volt_out = volt_data[i-1] + (volt_data[i] - volt_data[i-1]) * (soc_in - soc_data[i-1]) / (soc_data[i] - soc_data[i-1])
+        if soc_data[i+1] >= soc_in and soc_data[i] < soc_in: #Función de interpolación
+            volt_out = volt_data[i] + (volt_data[i+1] - volt_data[i]) * (soc_in - soc_data[i]) / (soc_data[i+1] - soc_data[i])
             break
     return volt_out
 
@@ -24,7 +24,7 @@ def dsoc_interpolation(soc_data, volt_data, soc_in):
 ################################# PARA DESCARGA #################################
 #################################################################################
 
-dsd = pd.read_csv('discharge_data29_09_2021_19_13.csv')#Upload csv
+dsd = pd.read_csv('C:/Repositories/battery_characterizer/coulomb_tests/discharge_data09_10_2021_22_55.csv')#Upload csv
 dsd.columns = ['time','seconds','voltage','current','capacity','temperature']
 
 # Limpiando los datos PARA DESCARGA
@@ -34,7 +34,7 @@ socd = 1 - dsd.capacity/dsd.capacity.max()
 dsd = dsd.assign(soc=socd.values)
 dsd = dsd.sort_values(by=['seconds'], ascending=False)
 dsd = dsd.reset_index(drop=True)
-print(dsd.head())
+# print(dsd.head())
 
 #c_eff = dsd.capacity.max() / dsd.capacity.max()
 #dsd.capacity = c_eff*dsd.capacity
@@ -57,7 +57,7 @@ newdsd = newdsd.assign(voltage=new_voltd)
 ################################### PARA CARGA ###################################
 ##################################################################################
 
-dsc = pd.read_csv('charge_data29_09_2021_19_13.csv')#Upload csv
+dsc = pd.read_csv('C:/Repositories/battery_characterizer/coulomb_tests/charge_data11_10_2021_23_55.csv')#Upload csv
 dsc.columns = ['time','seconds','voltage','current','capacity','temperature']
 
 # Limpiando los datos PARA CARGA
@@ -84,11 +84,11 @@ newdsc = newdsc.assign(voltage=new_voltc)
 soc = np.linspace(0,1,datapoints)
 ocv = (newdsc.voltage.values + newdsd.voltage.values)/2
 sococv = pd.DataFrame(data={"soc":soc,"ocv": ocv})
-sococv.to_csv('sococv.csv', index=False)
+sococv.to_csv('C:/Repositories/battery_characterizer/coulomb_tests/sococv.csv',index=False, mode='w', header=["SOC", "OCV"])
 
 R0 = (newdsc.voltage.values - sococv.ocv.values)/0.1 #calcular el R para todos los puntos R=dV/i
 socR0 = pd.DataFrame(data={"soc":soc,"R0":R0})
-socR0.to_csv('socR0.csv', index=False)
+socR0.to_csv('C:/Repositories/battery_characterizer/coulomb_tests/socR0.csv', index=False, mode='w', header=["SOC", "R0"])
 
 fig1 = px.scatter(socR0, x="soc", y="R0")
 fig1.show()
