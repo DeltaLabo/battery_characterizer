@@ -145,6 +145,11 @@ class Carga:  # Esta clase describe cada neurona
     def set_range(self, corriente: int):
         self.carga.write(":SOUR:CURR:RANG {}".format(corriente))
         return self.carga.query("SOUR:CURR:RANG?")
+        
+    # Changes the load mode to CV
+    def set_mode(self, mode: str):
+        self.carga.write(":SOUR:FUNC {}".format(mode))
+        return self.carga.query(":SOUR:FUNC?")
     
     # Set sensor terminals    
     def remote_sense(self,state):
