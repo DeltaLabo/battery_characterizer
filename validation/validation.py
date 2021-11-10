@@ -17,6 +17,7 @@ import RPi.GPIO as GPIO
 import board 
 import digitalio
 import adafruit_max31855
+import sec_interp_test
 
 #GPIO.cleanup() pasarlo al final
 GPIO.setwarnings(False)
@@ -25,16 +26,10 @@ GPIO.setup(17,GPIO.OUT) #Pin #17 RPi
 GPIO.setup(18,GPIO.OUT) #Pin #18 RPi
 GPIO.output(17, GPIO.LOW)
 GPIO.output(18,GPIO.LOW)
-GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #Change of State Button
+GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #Change of State 
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #Shutdown Button
 
-##########################Definición 'controller2'##################################
-#rm = pyvisa.ResourceManager()
-#print(rm.list_resources())
-#fuente = rm.open_resource(rm.list_resources()[1])
-#fuente.write_termination = '\n'
-#fuente.read_termination = '\n'
-
+############### Communication with Resources ###############
 rm = pyvisa.ResourceManager()
 print(rm.list_resources()[1])
 
@@ -50,22 +45,21 @@ for i in range(3):
     #else:
         #print("No se ha detectado la fuente o la carga")
 
-Fuente = controller2.Fuente(fuente, "SPD1305", tipoFuente = True) # SPD parámetro para iterar cuando hay más recursos
-Carga = controller2.Carga(carga, "DL3021")
-#############################################################################################
-# rm = pyvisa.ResourceMana"Power"ger()
-# print(rm.list_resources()) #Retorna los recursos (fuente y carga)
-# fuente = rm.open_resource(rm.list_resources()[0])
-# #print(fuente.query("*IDN?")) #Verificar orden dela fuente y la carga
-# Fuente = controller2.Fuente(fuente, "Diego") #'Diego' parámetro para iterar cuando hay más recursos
+Fuente = controller2.Fuente(fuente, "SPD1305", tipoFuente = True)
+########################################################################
 
-#Lee valores de entrada como el canal, corriente y voltaje de un archivo csv
+############### Read needed csv files ###############
 df = pd.read_csv("/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv", header=0)
-#definir estructura
-outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Voltage", "Current", "Capacity", "Temperature"])
+powd = pd.read_csv("/home/pi/Repositories/battery_characterizer/bat_data/bat40.csv", header=0)
+powd.columns = ['time', 'current', 'voltage', 'power']
+########################################################################
 
-#Variables globales que se utilizará dentro de cada función
-state = "INIT" 
+############### Create csv files ###############
+outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Voltage", "Current", "Capacity", "Temperature"])
+########################################################################
+
+# Global Variables Definition
+mode = "discharge" # Se toma que se iniciará en descarga 
 channel = df.iloc[0,0] #[row,column] channel global variable (Channel 1 by default)
 volt = 1.0  
 current = 1.0 
@@ -90,86 +84,6 @@ spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
 max31855 = adafruit_max31855.MAX31855(spi, cs)
 
-##########################Se define el diccionario con los estados##################################
-
-#Primero se definirá la base de la máquina de estados (utilizando diccionapandas append csvrios)
-def statemachine (entry):
-    global state #Se llama a la variable global que se definió 
-    #afuera de las funciones 
-    switch = {"INIT" : INIT, #Entre carga y descarga debería haber un wait de ciertos minutos (15 min)
-              #"PRECHARGE" : PRECHARGE,
-              "CHARGE" : CHARGE,
-              "DISCHARGE" : DISCHARGE,
-              #"POSTDISCHARGE" : POSTDISCHARGE,
-              "WAIT" : WAIT,
-              "END" : END,    
-    }         #switch será el diccionario donde se guarden los cuatro estados
-    func = switch.get(state)
-    return func(entry)
-#Se define cada uno de los estados (inicial, carga, descarga y espera)
-
-#########################Se define la función del estado inicial#####################################
-
-def INIT(entry):
-    global state
-    global df
-    global init_flag
-    global cycles
-    global cycle_counter
-    global charge_only
-    
-    if cycles == 0:
-        print ('''
-                '.`                                           `--`                 
-                 -``':>rr,                              '<\*!-` `'               
-                ^-      -\kx"                       '*yT!       r               
-                x:         ~sKr`                  :uMx.         y               
-                rY           !Idv'              ^KZv`          _w               
-                -O:            :KRu_         `*qd(`            z*               
-                 TH`             *MRu-     `*5Eu'             (O`               
-                 -dy              `x66L'  =PDK:              !Rx                
-                  rEY               _jDdvzEdr`              ,d3`                
-                   TDY                rEED3'               ,Zd_                 
-                   `hDY              ^ZEw5Ey-             ,ZR~                  
-                    .GD}`          -wDZx:ruEd*           :ZE(                   
-                   `.^6Eyrvx}uVwXhmdDyL#\gO?MDHIkyu}Lx)*rdDu`                   
-           `_~rLymMRDEO6EDqjkycukEDOv3@@\g@#vyDD5VVkjsKREEEDRZ3wY?>:'           
-      _^YwXkTxr<!,-``  -PE5,   ,MDI(B@@@\g@@@KrdRi`   iEE( ``-,:>rv}yIk}*,`     
-   !r\k!.               'hEd~ ^ORxu@@@@@\g@@@@8*GDI-`yER*              ':^\k~`  
- -!.                     `yDRIEO*Z@@@@@@\g@@@@@#*yDMHEd=                    `!, 
- `                         YEDq^Q@@@@@@@*Z@@@@@@@YvRDd,                       ``
- _!`                      _GEy)#@@@#O33Z#gP3H8@@@@Z^ZEY`                    `:" 
-  `~r(~_`                :ZEx}@@RPPMB@@@@@@@@$PPMB@Q^KDV`              `-=)r^'  
-     `:(uwzuxr<!_.`     :d6*(P3GB@@@@@@@@@@@@@@@#OPPX:kDw`   `'_:~*v}wkcv=`     
-          `,>\}zGOEOMHmjdEzr(zhsmsIIhssmmmmshIXImmssT*\dD5PMdE65Xlv^:'          
-                  `.,!}DEu}uyzhKHqZEDD6ddddRDDOHKsjyu}xvmDM!-`                  
-                     _ZRr          ^ZEM= `YREw-         `XEc                    
-                    `3Rr            'TREyqEM^            `jEv                   
-                    uE)               ^REDP'              `hR!                  
-                   <Ex               *ZEIMEX,              'P5`                 
-                  `Zc              =HDX: `rZEu-             -Z}                 
-                  \H`            ,zEh=     `?ZOx`            ~O-                
-                  P=           .uRz!         `r5q*`           u\                
-                 -I          -idT,             `*3G*`         ,V                
-                 -\        =yI*`                  _xKi_        x                
-                  !     ,?Yr-                        :xi*-    '"                
-                   ``-"=:`                              '!!_.`                  
-        ''')
-        cycles = int(input("Digite la cantidad de ciclos de carga/descarga de la batería: \n"))
-    
-    if input("Desea realizar solo carga: \n") == 'y':
-        charge_only = 1
-        print("Solo CARGA...")
-    state = "CHARGE"
-    init_flag = 1
-    cycle_counter += 1 
-    print("Avanzando al estado de CARGA...")
-
-def next_state(channel):
-    global next_state_flag
-    next_state_flag = 1 
-GPIO.add_event_detect(24, GPIO.RISING, callback=next_state, bouncetime=1000) 
-
 def poweroff(channel):
     global state 
     global end_flag
@@ -177,7 +91,7 @@ def poweroff(channel):
     GPIO.output(18, GPIO.LOW)
     Fuente.apagar_canal(channel)
     Carga.apagar_carga()
-    print("El sistema se ha apagado")
+    print("La validación ha finalizado...")
     state = "END"
     end_flag = 1
 GPIO.add_event_detect(22, GPIO.RISING, callback=poweroff, bouncetime=1000)
@@ -189,7 +103,7 @@ def ISR():
     global timer_flag
     t = threading.Timer(1.0, ISR) #ISR se ejecuta cada 1 s mediante threading
     t.start()
-    timer_flag = 1 #Al iniciar el hilo, el timer_flag pasa a ser 1
+    timer_flag = 1 #Flag se levanta para realizar medición
 
 #Thread de medición
 def medicion():
@@ -210,9 +124,9 @@ def medicion():
     tiempo_actual = datetime.now()
     deltat = (tiempo_actual - past_time).total_seconds()
     seconds += deltat
-    if state == "CHARGE":
+    if mode == "charge":
         volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
-    elif state == "DISCHARGE": 
+    elif mode == "discharge": 
         volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
     tempC = max31855.temperature #Measure Temp
     
@@ -220,38 +134,80 @@ def medicion():
             poweroff(channel)
             print("Cuidado! La celda ha excedido la T máxima de operación")
     
-    capacity +=  deltat * ((current + past_curr) / 7.2) #documentar porque 7.2 sino se te va a olvidar
+    capacity +=  deltat * ((current + past_curr) / 7.2) #documentar porque 7.2 sino se te va a olvidar. Ya se me olvidó jajaja
     past_time = tiempo_actual
     past_curr = current    
     print("{:09.2f} c = {:02d} V = {:06.3f} I = {:06.3f} Q = {:07.2f} T = {:06.3f}".format(seconds, cycle_counter, volt, current, capacity, tempC))
     base = "/home/pi/cycler_data/"
     
-    if state == "CHARGE":
-        outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
-        filename = base + "charge_data" + file_date + ".csv"
-        outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for CHARGE
-    elif state == "DISCHARGE": 
-        outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
-        filename = base + "discharge_data" + file_date + ".csv"
-        outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for DISCHARGE
+    outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
+    filename = base + "validation_data" + file_date + ".csv"
+    outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) 
+
     
 #Función para controlar módulo de relés (CH1 y CH2)    
-def relay_control(state):
-    if state == "CHARGE": #Charge - CH1
+def relay_control(mode):
+    if mode == "charge": #Charge - CH1
         GPIO.output(18,GPIO.LOW)
-        time.sleep(0.5)
+        #time.sleep(0.5)
         GPIO.output(17,GPIO.HIGH)
-        time.sleep(2)
-    elif state == "DISCHARGE": #Discharge - CH2
+    elif mode == "discharge": #Discharge - CH2
         GPIO.output(17,GPIO.LOW)
-        time.sleep(0.5)
+        #time.sleep(0.5)
         GPIO.output(18,GPIO.HIGH)
-        time.sleep(2)
-    elif state == "WAIT":# Wait - Both Low
-        GPIO.output(17,GPIO.LOW)
-        time.sleep(0.5)
-        GPIO.output(18,GPIO.LOW)
-        time.sleep(2)
+
+
+################# Se define la función que hará que la batería se cargue ############################
+def set_value (entry): 
+    global seconds
+    global channel
+    global volt
+    global current
+    global power 
+    global capacity
+    global df
+    global init_flag
+    global timer_flag
+    global mintowait
+    global next_state_flag #FLAG CAMBIO DE ESTADO
+    global past_time
+    global seconds
+    global file_date
+
+    # if init_flag == 1:
+        # relay_control(state) #CHARGE
+        # set_supply_voltage = df.iloc[0,1] #[fila,columna]
+        # batt_capacity = df.iloc[0,2] #[fila,columna]
+        # set_C_rate = (0.25) #C rate seteado de C/35
+        # Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
+        # Fuente.toggle_4w() #Activar sensado
+        # Fuente.encender_canal(channel) #Solo hay un canal (el #1)
+        # init_flag = 0 #Cambia el init_flag de 1 a 0
+        # past_time = datetime.now()
+        # file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
+        # timer_flag = 0
+        # capacity = 0
+        # seconds = 0
+        
+    if timer_flag == 1:
+        timer_flag = 0
+        medicion()
+        
+        if seconds != bat40.time:
+            sec_interpolation()
+        
+        
+        
+        if current <= (0.098) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
+            Fuente.apagar_canal(channel)
+            Fuente.toggle_4w()
+            if next_state_flag  == 1:
+                next_state_flag = 0
+            prev_state = "CHARGE" #From CHARGE
+            state = "WAIT" #To WAIT
+            init_flag = 1
+            mintowait = 4 #Wait 10 min
+
 
 ################# Se define la función que hará que la batería se cargue ############################
 def CHARGE (entry): 

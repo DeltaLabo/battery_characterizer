@@ -276,7 +276,7 @@ def CHARGE (entry):
         relay_control(state) #CHARGE
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = (0.25) #C rate seteado de C/35
+        set_C_rate = (1.0) #C rate seteado de C/35
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
