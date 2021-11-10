@@ -1,11 +1,12 @@
 '''
-@file Ciclador de baterías
+@file Model Validation
 @author Diego Fernández Arias
 @author Juan J. Rojas
-@date Sep 28 2021
+@date November 2021
 Instituto Tecnológico de Costa Rica
 Laboratorio Delta
 '''
+from numpy.lib.function_base import interp
 import pyvisa
 import controller2
 import time
@@ -58,8 +59,8 @@ powd.columns = ['time', 'current', 'voltage', 'power']
 outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Voltage", "Current", "Capacity", "Temperature"])
 ########################################################################
 
-# Global Variables Definition
-mode = "discharge" # Se toma que se iniciará en descarga 
+############### Global Variables Definition ###############
+state = "discharge" # Se toma que se iniciará en descarga 
 channel = df.iloc[0,0] #[row,column] channel global variable (Channel 1 by default)
 volt = 1.0  
 current = 1.0 
@@ -68,7 +69,6 @@ timer_flag = 0
 init_flag = 1
 mintowait = 0
 prev_state = 0
-next_state_flag = 0
 cycles = 0
 counter = 0
 cycle_counter = 0
@@ -79,10 +79,23 @@ tempC = 0
 seconds = 0
 end_flag = 0
 charge_only  = 0
+interp_pow = 0
+i_interp = 0
 file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
 spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
 max31855 = adafruit_max31855.MAX31855(spi, cs)
+
+############### States definition ###############
+
+def states (entry):
+    global state
+    switch = {"discharge": discharge,
+              "charge" : charge,
+    }
+    func = switch.get(state)
+    return func(entry)
+############################################################
 
 def poweroff(channel):
     global state 
@@ -97,15 +110,16 @@ def poweroff(channel):
 GPIO.add_event_detect(22, GPIO.RISING, callback=poweroff, bouncetime=1000)
 
 
-#Interrupt Service Routine
+############### Interrupt Service Routine ###############
 #Executed in response to an event such as a time trigger or a voltage change on a pin
 def ISR():
     global timer_flag
     t = threading.Timer(1.0, ISR) #ISR se ejecuta cada 1 s mediante threading
     t.start()
     timer_flag = 1 #Flag se levanta para realizar medición
+############################################################
 
-#Thread de medición
+############### Thread de medición ###############
 def medicion():
     global volt
     global current
@@ -124,13 +138,13 @@ def medicion():
     tiempo_actual = datetime.now()
     deltat = (tiempo_actual - past_time).total_seconds()
     seconds += deltat
-    if mode == "charge":
+    if state == "charge":
         volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
-    elif mode == "discharge": 
+    elif state == "discharge": 
         volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
     tempC = max31855.temperature #Measure Temp
     
-    if tempC >= 50:
+    if tempC >= 60:
             poweroff(channel)
             print("Cuidado! La celda ha excedido la T máxima de operación")
     
@@ -143,29 +157,30 @@ def medicion():
     outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
     filename = base + "validation_data" + file_date + ".csv"
     outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) 
-
+############################################################
     
-#Función para controlar módulo de relés (CH1 y CH2)    
-def relay_control(mode):
-    if mode == "charge": #Charge - CH1
+############### Relays control ###############    
+def relay_control(state):
+    if state == "charge": #Charge - CH1
         GPIO.output(18,GPIO.LOW)
         #time.sleep(0.5)
         GPIO.output(17,GPIO.HIGH)
-    elif mode == "discharge": #Discharge - CH2
+    elif state == "discharge": #Discharge - CH2
         GPIO.output(17,GPIO.LOW)
         #time.sleep(0.5)
         GPIO.output(18,GPIO.HIGH)
+############################################################
 
-
-################# Se define la función que hará que la batería se cargue ############################
+############### Set values ###############
 def set_value (entry): 
+    global state
     global seconds
     global channel
     global volt
     global current
     global power 
     global capacity
-    global df
+    global powd
     global init_flag
     global timer_flag
     global mintowait
@@ -173,6 +188,8 @@ def set_value (entry):
     global past_time
     global seconds
     global file_date
+    global interp_pow
+    global i_interp
 
     # if init_flag == 1:
         # relay_control(state) #CHARGE
@@ -193,24 +210,22 @@ def set_value (entry):
         timer_flag = 0
         medicion()
         
-        if seconds != bat40.time:
-            sec_interpolation()
-        
-        
-        
-        if current <= (0.098) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
-            Fuente.apagar_canal(channel)
-            Fuente.toggle_4w()
-            if next_state_flag  == 1:
-                next_state_flag = 0
-            prev_state = "CHARGE" #From CHARGE
-            state = "WAIT" #To WAIT
+        if seconds != powd.time:
+            interp_pow = sec_interpolation(powd.time, powd.power, seconds)
+        elif seconds == powd.time:
+            interp_pow = powd.power
+        i_interp = interp_pow / volt
+
+        if i_interp >= 0: #Descarga
+            state = "discharge"
             init_flag = 1
-            mintowait = 4 #Wait 10 min
+        elif i_interp < 0: #Carga
+            state = "charge"
+            init_flag = 1
+############################################################
 
-
-################# Se define la función que hará que la batería se cargue ############################
-def CHARGE (entry): 
+############### Charge ###############
+def charge (entry): 
     global prev_state
     global state
     global channel
@@ -226,13 +241,13 @@ def CHARGE (entry):
     global past_time
     global seconds
     global file_date
-    batt_capacity = df.iloc[0,2] #Eliminarse. Ya está en línea 156
+    global i_interp
 
     if init_flag == 1:
-        relay_control(state) #CHARGE
-        set_supply_voltage = df.iloc[0,1] #[fila,columna]
-        batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = (0.25) #C rate seteado de C/35
+        if prev_state != "charge":
+            relay_control(state) #state = charge
+        set_supply_voltage = powd.voltage
+        set_C_rate = i_interp
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
@@ -255,12 +270,11 @@ def CHARGE (entry):
             state = "WAIT" #To WAIT
             init_flag = 1
             mintowait = 4 #Wait 10 min
-        
+   ############################################################     
 
-################# Se define la función que hará que la batería se descargue #########################
-
-#Se setea el recurso de la CARGA para descargar la batería       
-def DISCHARGE(entry):
+############### Discharge ###############
+      
+def discharge(entry):
     global prev_state
     global state
     global channel
@@ -277,7 +291,6 @@ def DISCHARGE(entry):
     global seconds
     global file_date
 
-    ###################################################################
     if init_flag == 1:
         relay_control(state) #DISCHARGE
         Carga.remote_sense(True)
@@ -302,43 +315,9 @@ def DISCHARGE(entry):
             init_flag = 1
             mintowait = 4 # Wait 10 min.1 s = 2.5 s
             
-    ##################################################################
-     
-################ Se define la función que esperará y retornará al estado inicial ####################
-def WAIT(entry):
-    global state
-    global mintowait
-    global timer_flag
-    global init_flag
-    global prev_state
-    global next_state_flag #FLAG CAMBIO DE ESTADO
-    global counter
-    global charge_only
-    if init_flag == 1:
-        relay_control(state)
-        counter = 0 
-        init_flag = 0
-    if timer_flag == 1: #FLAG CAMBIO DE ESTADO
-        counter += 1
-        timer_flag = 0
-        print(counter) #, end='\r')
-    if counter >= (mintowait * 60) or next_state_flag == 1:
-        if next_state_flag == 1:
-            next_state_flag = 0
-        if prev_state == "CHARGE": #CHARGE:
-            if charge_only == 0:
-                state = "DISCHARGE" #DISCHARGE
-                print("Estado DISCHARGE") 
-            else:
-                state = "END" #END
-                print("Estado END")  
-        elif prev_state == "DISCHARGE": #DISCHARGE:
-            state = "END" #END
-            print("Estado END")  
-        init_flag = 1
-    
+    ##################################################################    
 
-####Función final. Apagará canal cuando se hayan cumplido ciclos o reiniciará
+############### End ###############
 def END(entry):
     global cycle_counter
     global end_flag
@@ -348,11 +327,11 @@ def END(entry):
         end_flag = 1
     else:
         state = "INIT" 
-    
+############################################################
 
-######################## Programa Principal (loop de la máquina de estado) ########################
+############### Main Program ###############
 t = threading.Timer(1.0, ISR)
 t.start() #Después de 5 segundos ejecutará lo de medición ()
 while end_flag == 0:
-    statemachine("INIT")
-print("Terminó el programa")
+    states("discharge")
+print("Terminó el proceso de validación...")
