@@ -361,8 +361,8 @@ new_soc = np.linspace(0,1,101)
 r0 = (r0df.r01.values + r0df.r02.values + r0df.r03.values) / 3
 r1 = (r1df.r11.values + r1df.r12.values + r1df.r13.values) / 3
 c1 = (c1df.c11.values + c1df.c12.values + c1df.c13.values) / 3
-parameters = pd.DataFrame(data={"r0":r0,"r1":r1, "c1":c1})
-parameters.to_csv('C:/Users/Diego/Desktop/battery_data/parameters/parameters.csv', index=False, mode='w', header=["r0", "r1", "c1"])
+parameters = pd.DataFrame(data={"soc":new_soc, "r0":r0,"r1":r1, "c1":c1})
+parameters.to_csv('C:/Repositories/battery_characterizer/soc_test/parameters.csv', index=False, mode='w', header=["soc","r0", "r1", "c1"])
 
 plt.figure
 plt.plot(new_soc1, new_r01, label="1C")
