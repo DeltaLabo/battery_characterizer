@@ -30,6 +30,20 @@ def ocv_interpolation(soc_data, ocv_data, soc_in):
             ocv_out = ocv_data[i-1] + (ocv_data[i] - ocv_data[i-1]) * ((soc_in - soc_data[i-1]) / (soc_data[i] - soc_data[i-1]))
             break
     return ocv_out
+    
+###### Generic interpolation w/o extrapolation #####
+def interpolation(x_data, y_data, x_in):
+    for i in range(len(x_data)-1):
+        if x_in < x_data[0]:
+            x_out = y_data[0] #Cambiar por extrapolación
+            break
+        if x_in > x_data[len(x_data)-1]:
+            x_out = y_data[len(x_data)-1] #Cambiar por extrapolación
+            break
+        if x_data[i+1] >= x_in and x_data[i] <= x_in: #Función de interpolación
+            x_out = y_data[i] + (y_data[i+1] - y_data[i]) * ((x_in - x_data[i]) / (x_data[i+1] - x_data[i]))
+            break
+    return x_out
 
 #Definición de datos de entrada
 # df = pd.read_csv('C:/Users/Diego/Desktop/OCV(z).csv')

@@ -24,11 +24,11 @@ pow_data = df.power.values
 for i in range(len(new_sec)):
     new_pow = np.append(new_pow, sec_interpolation(sec_data, pow_data, new_sec[i]))
 
-# plt.figure
-# plt.plot(new_sec, new_pow, 'xr', sec_data, pow_data)
-# # plt.title("DataFrame 2")
-# plt.xlabel("time (s)")
-# plt.ylabel("power (W)")
-# plt.show()
+plt.figure
+plt.plot(new_sec, new_pow, 'xr', sec_data, pow_data)
+# plt.title("DataFrame 2")
+plt.xlabel("time (s)")
+plt.ylabel("power (W)")
+plt.show()
 
 
