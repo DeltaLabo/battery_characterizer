@@ -87,7 +87,7 @@ past_time = datetime.now()
 past_curr = 0
 capacity = 0
 tempC = 0
-seconds = 0
+seconds = 0.0
 end_flag = 0
 charge_only  = 0
 file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -132,6 +132,9 @@ def INIT(entry):
     global cycles
     global cycle_counter
     global charge_only
+    global seconds
+    global int_pow
+    global past_time
     
     if cycles == 0:
         print ('''
@@ -170,14 +173,19 @@ def INIT(entry):
                   !     ,?Yr-                        :xi*-    '"                
                    ``-"=:`                              '!!_.`                  
         ''')
+        
+    seconds = float(input("Segundos iniciales: \n"))
+    int_pow = sec_interpolation(powd.time, powd.power, seconds)
+    
     
     if input("Desea iniciar?: \n") == 'y':
-        if powd.power[0] > 0:
+        if int_pow > 0:
             state = "DISCHARGE"
         else:
             state = "CHARGE"
     init_flag = 1
     cycle_counter += 1 
+    past_time = datetime.now()
     print("Iniciando...")
 
 def poweroff(channel):
@@ -222,11 +230,12 @@ def medicion():
     seconds += deltat
     if state == "CHARGE":
         volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
+        current = -current
     elif state == "DISCHARGE": 
         volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
     tempC = max31855.temperature #Measure Temp
     
-    if tempC >= 50:
+    if tempC >= 60:
             poweroff(channel)
             print("Cuidado! La celda ha excedido la T máxima de operación")
     
@@ -274,9 +283,12 @@ def CHARGE (entry):
     global seconds
 
     if init_flag == 1:
+        init_flag = 0
         relay_control(state) #CHARGE
         Fuente.toggle_4w() #Activar sensado
-        #past_time = datetime.now()
+        Fuente.aplicar_voltaje_corriente(channel, 4.2, 0)
+        Fuente.encender_canal(channel) 
+        time.sleep(0.1)
         timer_flag = 1
         
     if timer_flag == 1:
@@ -284,17 +296,15 @@ def CHARGE (entry):
         medicion()
         int_pow = sec_interpolation(powd.time, powd.power, seconds)
         if int_pow > 0:
-            state = "CHARGE" 
+            state = "DISCHARGE" 
             Fuente.apagar_canal(channel)
+            Fuente.toggle_4w()
             init_flag = 1
-        else:            
-            int_curr = int_pow / volt
+        else:          
+            int_curr = -int_pow / volt
             Fuente.aplicar_voltaje_corriente(channel, 4.2, int_curr)
-            if init_flag == 1:
-                Fuente.encender_canal(channel) #Solo hay un canal (el #1)
-                init_flag = 0
     
-    if seconds > powd.time.value[len(powd)-1]:
+    if seconds > powd.time[len(powd)-1]:
         state = "END"
         
 
@@ -320,8 +330,12 @@ def DISCHARGE(entry):
 
     ###################################################################
     if init_flag == 1:
+        init_flag = 0
         relay_control(state) #CHARGE
         Carga.remote_sense(True) #Activar sensado
+        Carga.fijar_corriente(0)
+        Carga.encender_carga() #Solo hay un canal (el #1)
+        time.sleep(0.1)
         #past_time = datetime.now()
         timer_flag = 1
         
@@ -329,16 +343,13 @@ def DISCHARGE(entry):
         timer_flag = 0
         medicion()
         int_pow = sec_interpolation(powd.time, powd.power, seconds)
-        if int_pow  > 0:
-            state = "DISCHARGE" 
+        if int_pow  < 0:
+            state = "CHARGE" 
             Carga.apagar_carga()
             init_flag = 1
         else:            
             int_curr = int_pow / volt
             Carga.fijar_corriente(int_curr)
-            if init_flag == 1:
-                Carga.encender_carga() #Solo hay un canal (el #1)
-                init_flag = 0    
     
     if seconds > powd.time[len(powd)-1]:
         state = "END"
@@ -355,6 +366,7 @@ def END(entry):
     global end_flag
     global state
     print("Terminó el ciclo...")
+    poweroff(channel)
     if cycle_counter >= cycles:
         end_flag = 1
     else:
