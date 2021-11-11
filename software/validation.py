@@ -7,12 +7,14 @@ Instituto Tecnológico de Costa Rica
 Laboratorio Delta
 '''
 import pyvisa
+import numpy as np
 import controller2
 import time
 from time import sleep
 import threading
 import pandas as pd
 from datetime import datetime
+import math
 import RPi.GPIO as GPIO
 import board 
 import digitalio
@@ -67,6 +69,7 @@ outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Voltage", "Current", "
 ############### Read needed csv files ###############
 df = pd.read_csv('/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv', header=0)
 powd = pd.read_csv('/home/pi/Repositories/battery_characterizer/bat_data/bat40.csv')
+modeldf = pd.read_csv('home/pi/Repositories/battery_characterizer/validation/parameters.csv')
 ########################################################################
 
 #Variables globales que se utilizará dentro de cada función
@@ -95,6 +98,7 @@ spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
 max31855 = adafruit_max31855.MAX31855(spi, cs)
 
+# Cambiar por la generic interpolation #
 def sec_interpolation(sec_data, pow_data, sec_in):
     for i in range(len(sec_data)-1):
         if sec_in < sec_data[0]:
@@ -108,26 +112,36 @@ def sec_interpolation(sec_data, pow_data, sec_in):
             break
     return pow_out
 
+def interpolation(x_data, y_data, x_in): #Usar con R0, R1, C1
+        for i in range(len(x_data)-1):
+            if x_in < x_data[0]:
+                x_out = y_data[0] #Cambiar por extrapolación
+                break
+            if x_in > x_data[len(x_data)-1]:
+                x_out = y_data[len(x_data)-1] #Cambiar por extrapolación
+                break
+            if x_data[i+1] >= x_in and x_data[i] <= x_in: #Función de interpolación
+                x_out = y_data[i] + (y_data[i+1] - y_data[i]) * ((x_in - x_data[i]) / (x_data[i+1] - x_data[i]))
+                break
+        return x_out
+
 ##########################Se define el diccionario con los estados##################################
 
 #Primero se definirá la base de la máquina de estados (utilizando diccionapandas append csvrios)
 def statemachine (entry):
-    global state #Se llama a la variable global que se definió 
-    #afuera de las funciones 
-    switch = {"INIT" : INIT, #Entre carga y descarga debería haber un wait de ciertos minutos (15 min)
+    global state 
+    switch = {"INIT" : INIT,
               "CHARGE" : CHARGE,
               "DISCHARGE" : DISCHARGE,
               "END" : END,    
-    }         #switch será el diccionario donde se guarden los cuatro estados
+    }        
     func = switch.get(state)
     return func(entry)
-#Se define cada uno de los estados (inicial, carga, descarga y espera)
 
 #########################Se define la función del estado inicial#####################################
 
 def INIT(entry):
     global state
-    global df
     global init_flag
     global cycles
     global cycle_counter
@@ -243,12 +257,47 @@ def medicion():
     past_time = tiempo_actual
     past_curr = current    
     print("{:09.2f} c = {:02d} V = {:06.3f} I = {:06.3f} Q = {:07.2f} T = {:06.3f}".format(seconds, cycle_counter, volt, current, capacity, tempC))
-    base = "/home/pi/cycler_data/"
-        
+    
+    ##### INICIO DEL MODELO #####
+    # Define values for interpolartion #
+    z_data = modeldf.soc.values
+    r0_data = modeldf.r0.values
+    r1_data = modeldf.r1.values
+    c1_data = modeldf.c1.values
+
+    # Initial values #
+    i_0 = 0 # El capacitor se comporta como un corto
+    z_0 = z_data[0] # Cómo escojo el z según la V de la celda?
+    v_0 = 0 # interpolation() ¿Es igual a ocv en el primer momento?
+    dt = 1 # 1s de delta time
+    Q = 3.5 # Capacidad en Ah
+    n = 1 #Eficiencia (debería variar en carga y descarga)
+    
+    # Definir arrays donde se escribirán las interpolaciones
+    z_1 = np.array([z_0])
+    i_1 = np.array([i_0])
+    v = np.array([v_0])
+    # t = np.array([0])
+    
+    # Ecuaciones discretizadas #
+    z_1 = np.append(z_1, z_0 - ((dt*n*current)/Q))
+    i_1 = np.append(i_1, math.exp(-dt / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0)) * (i_0) + (1 - math.exp(-dt / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0))) * current)
+    v = np.append(v, (interpolation(z_data, ocv_data, z_0)) - (interpolation(z_data, r1_data, z_0) * (i_0)) - (interpolation(z_data, r0_data, z_0) * current))
+
+    z_0 = z_1
+    i_0 = i_1
+
+    ##### FINAL DEL MODELO #####
+
+    # Create csv to write the measurements
+    base = "/home/pi/cycler_data/"        
     outputCSV = outputCSV.append({"Timestamp":tiempo_actual,"Time":round(seconds,2), "Voltage":volt, "Current":current, "Capacity":round(capacity,2), "Temperature":tempC}, ignore_index=True)
     filename = base + "validation" + file_date + ".csv"
     outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for CHARGE
-
+    
+    # Create csv of the model predicted values
+    model_validation = pd.DataFrame(data={"soc_predicted":z_1, "i_r1":i_1,"v":v})
+    model_validation.to_csv('home/pi/Repositories/battery_characterizer/validation/validation.csv', index=False, mode='a', header=["soc_predicted","i_r1", "v"])
     
 #Función para controlar módulo de relés (CH1 y CH2)    
 def relay_control(state):
@@ -274,10 +323,8 @@ def CHARGE (entry):
     global current
     global power 
     global capacity
-    global df
     global init_flag
     global timer_flag
-    global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global past_time
     global seconds
@@ -319,10 +366,8 @@ def DISCHARGE(entry):
     global current
     global power
     global capacity #Faltó ponerlo para reiniciar la C en descarga
-    global df
     global init_flag  
     global timer_flag
-    global mintowait
     global next_state_flag #FLAG CAMBIO DE ESTADO
     global past_time
     global seconds
