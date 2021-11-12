@@ -56,8 +56,8 @@ c1_data = modeldf.c1.values
 ocv_data = ocvdf.OCV.values
 
 i_R1_0 = 0
-z_0_p = 0.95
-z_0_r = 0.95
+z_0_p = 0.98
+z_0_r = 0.98
 v_0 = 4.0
 deltat = 1
 
@@ -70,11 +70,14 @@ n = 1
 Q = 3.25
 
 for i in range(len(bat40)-1):
-    ocv_p = bat40.voltage[i] +  interpolation(z_data, r1_data, z_p[-1])*i_R1[-1] + interpolation(z_data, r0_data, z_p[-1])*bat40.current[i]
+    R0 = interpolation(z_data, r0_data, z_p[-1])
+    R1 = interpolation(z_data, r1_data, z_p[-1])
+    C1 = interpolation(z_data, c1_data, z_p[-1])
+    ocv_p = bat40.voltage[i] + R1*i_R1[-1] + R0*bat40.current[i]
     z_new = (z_r[-1] - (n*deltat*bat40.current[i]/(3600*Q)))
     z_r = np.append(z_r, z_new)
     z_p = np.append(z_p, interpolation(ocv_data, z_data, ocv_p)) #predicho
-    i_R1 = np.append(i_R1, np.exp(-deltat / interpolation(z_data, r1_data, z_p[-1]) * interpolation(z_data, c1_data, z_p[-1])) * (i_R1[-1]) + (1 - np.exp(-deltat / (interpolation(z_data, r1_data, z_p[-1]) * interpolation(z_data, c1_data, z_p[-1]))) ) * bat40.current[i])
+    i_R1 = np.append(i_R1, np.exp(-deltat / (R1 * C1)) * i_R1[-1] + (1 - np.exp(-deltat / (R1 * C1)) * bat40.current[i]))
 	
 
 bat40.to_csv('bat40.csv', index=False)
