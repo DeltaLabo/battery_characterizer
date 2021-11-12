@@ -93,6 +93,15 @@ tempC = 0
 seconds = 0.0
 end_flag = 0
 charge_only  = 0
+######
+# Initial values #
+i_0 = 0 # El capacitor se comporta como un corto
+z_0 = 0.9835 # Cómo escojo el z según la V de la celda?
+v_0 = 4.15 # interpolation() ¿Es igual a ocv en el primer momento?
+#dt = 1 # 1s de delta time
+Q = 3.20347 # Capacidad en Ah
+#n = 1 #Eficiencia (debería variar en carga y descarga)
+####
 file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
 spi = board.SPI()
 cs = digitalio.DigitalInOut(board.D5)
@@ -239,14 +248,21 @@ def medicion():
     global tempC
     global channel
     global cycle_counter
+    ######
+    global z_0
+    global i_0
+    global v_0
+    global Q
     tiempo_actual = datetime.now()
     deltat = (tiempo_actual - past_time).total_seconds()
     seconds += deltat
     if state == "CHARGE":
         volt,current = Fuente.medir_todo(channel) #Sobreescribe valores V,I,P
         current = -current
+        n = 0.932333
     elif state == "DISCHARGE": 
         volt,current = Carga.medir_todo() #Sobreescribe valores V,I,P
+        n = 1
     tempC = max31855.temperature #Measure Temp
     
     if tempC >= 60:
@@ -264,28 +280,28 @@ def medicion():
     r0_data = modeldf.r0.values
     r1_data = modeldf.r1.values
     c1_data = modeldf.c1.values
-
-    # Initial values #
-    i_0 = 0 # El capacitor se comporta como un corto
-    z_0 = z_data[0] # Cómo escojo el z según la V de la celda?
-    v_0 = 0 # interpolation() ¿Es igual a ocv en el primer momento?
-    dt = 1 # 1s de delta time
-    Q = 3.5 # Capacidad en Ah
-    n = 1 #Eficiencia (debería variar en carga y descarga)
     
     # Definir arrays donde se escribirán las interpolaciones
-    z_1 = np.array([z_0])
-    i_1 = np.array([i_0])
+    z_r = np.array([z_0])
+    z_p = np.array([0])
+    i_R1 = np.array([0])
     v = np.array([v_0])
     # t = np.array([0])
     
     # Ecuaciones discretizadas #
-    z_1 = np.append(z_1, z_0 - ((dt*n*current)/Q))
-    i_1 = np.append(i_1, math.exp(-dt / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0)) * (i_0) + (1 - math.exp(-dt / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0))) * current)
+    z_r = np.append(z_r, z_0 - ( (deltat*n*current)/Q ) )
+    
+    #Modelo
+    ocv_p = volt +  interpolation(z_data, r1_data, z_0)*i_R1 + interpolation(z_data, r0_data, z_0)*current
+    z_p = interpolation(ocv_data, z_data, ocv_p)
+    
+    i_R1 = np.append(i_1, math.exp(-deltat / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0)) * (i_0) + (1 - math.exp(-deltat / (interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0) ) ) ) * current)
     v = np.append(v, (interpolation(z_data, ocv_data, z_0)) - (interpolation(z_data, r1_data, z_0) * (i_0)) - (interpolation(z_data, r0_data, z_0) * current))
-
-    z_0 = z_1
-    i_0 = i_1
+     
+    
+    
+    z_0 = z_r[-1]
+    i_0 = i_R1[-1]
 
     ##### FINAL DEL MODELO #####
 
