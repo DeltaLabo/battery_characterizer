@@ -69,26 +69,25 @@ v = np.array([v_0])
 n = 1
 Q = 3.25
 
-for i in range(50):#(len(bat40)-1):
-	ocv_p = bat40.voltage[i] +  interpolation(z_data, r1_data, z_0_p)*i_R1[-1] + interpolation(z_data, r0_data, z_p[-1])*bat40.current[i]
-	z_new = (z_r[-1] - (n*bat40.current[i]/Q))
-	z_r = np.append(z_r, z_new)#z_r[-1] - (n*bat40.current[i]/Q)) #real
-	print(z_r)
-	z_p = np.append(z_p, interpolation(ocv_data, z_data, ocv_p)) #predicho
-	i_R1 = np.append(i_R1, np.exp(-deltat / interpolation(z_data, r1_data, z_p[-1]) * interpolation(z_data, c1_data, z_p[-1])) * (i_R1[-1]) + (1 - np.exp(-deltat / (interpolation(z_data, r1_data, z_p[-1]) * interpolation(z_data, c1_data, z_p[-1])) ) ) * bat40.current[i])
+for i in range(len(bat40)-1):
+    ocv_p = bat40.voltage[i] +  interpolation(z_data, r1_data, z_p[-1])*i_R1[-1] + interpolation(z_data, r0_data, z_p[-1])*bat40.current[i]
+    z_new = (z_r[-1] - (n*deltat*bat40.current[i]/(3600*Q)))
+    z_r = np.append(z_r, z_new)
+    z_p = np.append(z_p, interpolation(ocv_data, z_data, ocv_p)) #predicho
+    i_R1 = np.append(i_R1, np.exp(-deltat / interpolation(z_data, r1_data, z_p[-1]) * interpolation(z_data, c1_data, z_p[-1])) * (i_R1[-1]) + (1 - np.exp(-deltat / (interpolation(z_data, r1_data, z_p[-1]) * interpolation(z_data, c1_data, z_p[-1]))) ) * bat40.current[i])
 	
 
 bat40.to_csv('bat40.csv', index=False)
 bat35.to_csv('bat35.csv', index=False)
 
-# plt.figure(figsize=[15,5])
-# #plt.plot(bat40.time, bat40.power, label='power')
-# plt.plot(bat40.time, z_r, label='real')
-# #plt.plot(bat40.time, z_p)
-# plt.xlabel('time(s)', fontsize=15)
-# plt.ylabel('power(W)', fontsize=15)
-# plt.legend()
-# plt.show()
+plt.figure(figsize=[15,5])
+#plt.plot(bat40.time, bat40.power, label='power')
+plt.plot(bat40.time, z_r, label='real')
+plt.plot(bat40.time, z_p)
+plt.xlabel('time(s)', fontsize=15)
+plt.ylabel('power(W)', fontsize=15)
+plt.legend()
+plt.show()
 
 # plt.figure(figsize=[15,5])
 # plt.plot(bat35.time, bat35.power, label='power')
