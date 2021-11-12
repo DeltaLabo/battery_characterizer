@@ -76,49 +76,66 @@ ocv_data = ocvdf.OCV.values
 
 
 ###############PRUEBA##################
-ocv_inv = linspace(2.6,4.15,100)
+ocv_inv = linspace(2.5,4.5,100)
 soc_inv = np.array([0])
 
 
 for i in range(len(ocv_inv)-1):
     soc_inv = np.append(soc_inv, inv_interpolation(z_data,ocv_data,ocv_inv[i]))
 
-plt.plot(soc_inv,ocv_inv)
+plt.plot(ocv_inv, soc_inv)
 plt.show()
 ###############PRUEBA##################
 
-i_R1_0 = 0
-z_0_p = 0.98
-z_0_r = 0.98
+#i_R1_0 = 0
+z_0_p = 0.80
+z_0_r = 0.80
 v_0 = 4.0
 deltat = 1
 
 
 z_p = np.array([z_0_p])
 z_r = np.array([z_0_r])
-i_R1 = np.array([i_R1_0])
+iR1k = 0
+#i_R1 = np.array([i_R1_0])
 v = np.array([v_0])
 n = 1
-Q = 3.25
+Q = 3.25 * 3600 #ampere-seconds
 
 for i in range(len(bat40)-1):
-    R0 = interpolation(z_data, r0_data, z_p[-1])
-    R1 = interpolation(z_data, r1_data, z_p[-1])
-    C1 = interpolation(z_data, c1_data, z_p[-1])
-    ocv_p = bat40.voltage[i] + R1*i_R1[-1] + R0*bat40.current[i]
-    z_new = (z_r[-1] - (n*deltat*bat40.current[i]/(3600*Q)))
-    z_r = np.append(z_r, z_new)
-    z_p = np.append(z_p, inv_interpolation(z_data, ocv_data, ocv_p)) #predicho
-    i_R1 = np.append(i_R1, np.exp(-deltat / (R1 * C1)) * i_R1[-1] + (1 - np.exp(-deltat / (R1 * C1)) * bat40.current[i]))
+    #### PARAMETERS #######
+    vk = bat40.voltage[i]
+    ik = bat40.current[i]
+    #iR1k = i_R1[-1]  
+    R0 = 0.1
+    #R0 = interpolation(z_data, r0_data, z_p[-1])
+    #R1 = interpolation(z_data, r1_data, z_p[-1])
+    R1 = 0.01
+    C1 = 1000
+    tau = R1 * C1
+    #C1 = interpolation(z_data, c1_data, z_p[-1])
+    ####### REAL ##########
+    z_r = np.append( z_r, ( z_r[-1] - ( n * deltat * ik / Q ) ) )
+    ####### PREDICHO ##########
+
+    ocv_p = vk + ik * R0 + iR1k * R1     
+    #print("V= ", bat40.voltage[i])
+    # print("I= ", bat40.current[i])
+    # print("OCV_p= ", ocv_p)
+    # print("SOC_p=", inv_interpolation(z_data, ocv_data, ocv_p))
+    z_new = inv_interpolation(z_data, ocv_data, ocv_p)
+    z_p = np.append(z_p, z_new) #predicho
+    iR1k = np.exp( -deltat / tau ) * iR1k + ( 1 - np.exp( -deltat / tau ) ) * ik
+    #iR1 = np.append(iR1, ( np.exp( -deltat / (R1 * C1) ) ) * iR1k + ( 1 - np.exp( -deltat / (R1 * C1) ) ) * bat40.current[i])
 	
 
 bat40.to_csv('bat40.csv', index=False)
 bat35.to_csv('bat35.csv', index=False)
 
 plt.figure(figsize=[15,5])
-#plt.plot(bat40.time, bat40.power, label='power')
-#plt.plot(bat40.time, z_r, label='real')
-plt.plot(bat40.time, z_p)
+#plt.plot(bat40.time, bat40.current, label='power')
+plt.plot(bat40.time, z_r, label='real')
+plt.plot(bat40.time, z_p, label="predicted")
 plt.xlabel('time(s)', fontsize=15)
 plt.ylabel('power(W)', fontsize=15)
 plt.legend()
