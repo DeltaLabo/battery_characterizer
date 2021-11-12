@@ -38,28 +38,28 @@ bat35.iloc[1,1:4] = bat35.iloc[2,1:4]
 def interpolation(x, y, x_in): #Usar con R0, R1, C1
         for i in range(len(x)-1):
             if x_in < x[0]:
-                x_out = y[0] #Cambiar por extrapolación
+                y_out = y[0] #Cambiar por extrapolación
                 break
             if x_in > x[len(x)-1]:
-                x_out = y[len(x)-1] #Cambiar por extrapolación
+                y_out = y[len(x)-1] #Cambiar por extrapolación
                 break
             if x_in >= x[i] and x_in <= x[i+1]: #Función de interpolación
-                x_out = y[i] + (y[i+1] - y[i]) * ((x_in - x[i]) / (x[i+1] - x[i]))
+                y_out = y[i] + (y[i+1] - y[i]) * ((x_in - x[i]) / (x[i+1] - x[i]))
                 break
-        return x_out
+        return y_out
 
 def inv_interpolation(x, y, y_in): #Usar con R0, R1, C1
         for i in range(len(y)-1):
             if y_in < y[0]:
-                y_out = y[0] #Cambiar por extrapolación
+                x_out = x[0] #Cambiar por extrapolación
                 break
             if y_in > y[len(y)-1]:
-                y_out = y[len(y)-1] #Cambiar por extrapolación
+                x_out = x[len(y)-1] #Cambiar por extrapolación
                 break
             if y_in >= y[i] and y_in <= y[i+1]: #Función de interpolación
-                y_out = ((y_in-y[i+1])/(y[i]-y[i+1]))*x[i] + ((y_in-y[i])/(y[i+1]-y[i]))*x[i+1]
+                x_out = ((y_in-y[i+1])/(y[i]-y[i+1]))*x[i] + ((y_in-y[i])/(y[i+1]-y[i]))*x[i+1]
                 break
-        return y_out
+        return x_out
 
 
 modeldf = pd.read_csv('../validation/parameters.csv')
@@ -74,13 +74,18 @@ r1_data = modeldf.r1.values
 c1_data = modeldf.c1.values
 ocv_data = ocvdf.OCV.values
 
+
+###############PRUEBA##################
+ocv_inv = linspace(2.6,4.15,100)
 soc_inv = np.array([0])
 
-for i in range(len(ocvdf)-1):
-    soc_inv = np.append(soc_inv, inv_interpolation(z_data,ocv_data,ocv_data[i]))
 
-plt.plot(soc_inv,ocv_data)
+for i in range(len(ocv_inv)-1):
+    soc_inv = np.append(soc_inv, inv_interpolation(z_data,ocv_data,ocv_inv[i]))
+
+plt.plot(soc_inv,ocv_inv)
 plt.show()
+###############PRUEBA##################
 
 i_R1_0 = 0
 z_0_p = 0.98
