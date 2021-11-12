@@ -8,7 +8,7 @@ ds40 = pd.read_csv('FRDET40.csv')
 ds40.time = round(ds40.time * 60,0) #solo para pasarlo a segundos
 
 bat40 = ds40[['time','ibat','vbat']]
-newi = bat40.ibat/2
+newi = -bat40.ibat/2
 bat40 = bat40.assign(ibat=newi.values)
 power = bat40.apply(lambda row: row.ibat * row.vbat, axis=1)
 bat40 = bat40.assign(power=power.values)
@@ -25,7 +25,7 @@ ds35 = pd.read_csv('FRDET35.csv')
 ds35.time = round(ds35.time * 60,0) #solo para pasarlo a segundos
 
 bat35 = ds35[['time','ibat','vbat']]
-newi = bat35.ibat/2
+newi = -bat35.ibat/2
 bat35 = bat35.assign(ibat=newi.values)
 power = bat35.apply(lambda row: row.ibat * row.vbat, axis=1)
 bat35 = bat35.assign(power=power.values)
@@ -106,14 +106,16 @@ for i in range(len(bat40)-1):
     #### PARAMETERS #######
     vk = bat40.voltage[i]
     ik = bat40.current[i]
-    #iR1k = i_R1[-1]  
-    R0 = 0.1
-    #R0 = interpolation(z_data, r0_data, z_p[-1])
-    #R1 = interpolation(z_data, r1_data, z_p[-1])
-    R1 = 0.01
-    C1 = 1000
+    zk = z_p[-1]
+    R0 = interpolation(z_data, r0_data, zk)
+    R1 = interpolation(z_data, r1_data, zk)
+    C1 = interpolation(z_data, c1_data, zk)
+    #R0 = 0.05
+    #R1 = 0.001
+    #C1 = 10000
+    
+    
     tau = R1 * C1
-    #C1 = interpolation(z_data, c1_data, z_p[-1])
     ####### REAL ##########
     z_r = np.append( z_r, ( z_r[-1] - ( n * deltat * ik / Q ) ) )
     ####### PREDICHO ##########
@@ -133,7 +135,8 @@ bat40.to_csv('bat40.csv', index=False)
 bat35.to_csv('bat35.csv', index=False)
 
 plt.figure(figsize=[15,5])
-#plt.plot(bat40.time, bat40.current, label='power')
+#plt.plot(bat40.time, bat40.current/bat40.current.max(), label='normalized current')
+#plt.plot(bat40.time, bat40.voltage/bat40.voltage.max(), label='normalized voltage')
 plt.plot(bat40.time, z_r, label='real')
 plt.plot(bat40.time, z_p, label="predicted")
 plt.xlabel('time(s)', fontsize=15)
