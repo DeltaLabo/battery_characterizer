@@ -8,7 +8,7 @@ ds40 = pd.read_csv('FRDET40.csv')
 ds40.time = round(ds40.time * 60,0) #solo para pasarlo a segundos
 
 bat40 = ds40[['time','ibat','vbat']]
-newi = -bat40.ibat/2
+newi = bat40.ibat/2 #Cambiar a - al terminar la validación
 bat40 = bat40.assign(ibat=newi.values)
 power = bat40.apply(lambda row: row.ibat * row.vbat, axis=1)
 bat40 = bat40.assign(power=power.values)
@@ -25,7 +25,7 @@ ds35 = pd.read_csv('FRDET35.csv')
 ds35.time = round(ds35.time * 60,0) #solo para pasarlo a segundos
 
 bat35 = ds35[['time','ibat','vbat']]
-newi = -bat35.ibat/2
+newi = bat35.ibat/2 #Cambiar a - al terminar la validación
 bat35 = bat35.assign(ibat=newi.values)
 power = bat35.apply(lambda row: row.ibat * row.vbat, axis=1)
 bat35 = bat35.assign(power=power.values)

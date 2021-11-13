@@ -69,7 +69,7 @@ outputCSV = pd.DataFrame(columns = ["Timestamp", "Time", "Voltage", "Current", "
 ############### Read needed csv files ###############
 df = pd.read_csv('/home/pi/Repositories/battery_characterizer/software/prueba_inputs.csv', header=0)
 powd = pd.read_csv('/home/pi/Repositories/battery_characterizer/bat_data/bat40.csv')
-modeldf = pd.read_csv('home/pi/Repositories/battery_characterizer/validation/parameters.csv')
+# modeldf = pd.read_csv('home/pi/Repositories/battery_characterizer/validation/parameters.csv')
 ########################################################################
 
 #Variables globales que se utilizará dentro de cada función
@@ -276,32 +276,32 @@ def medicion():
     
     ##### INICIO DEL MODELO #####
     # Define values for interpolartion #
-    z_data = modeldf.soc.values
-    r0_data = modeldf.r0.values
-    r1_data = modeldf.r1.values
-    c1_data = modeldf.c1.values
+    # z_data = modeldf.soc.values
+    # r0_data = modeldf.r0.values
+    # r1_data = modeldf.r1.values
+    # c1_data = modeldf.c1.values
     
-    # Definir arrays donde se escribirán las interpolaciones
-    z_r = np.array([z_0])
-    z_p = np.array([0])
-    i_R1 = np.array([0])
-    v = np.array([v_0])
-    # t = np.array([0])
+    # # Definir arrays donde se escribirán las interpolaciones
+    # z_r = np.array([z_0])
+    # z_p = np.array([0])
+    # i_R1 = np.array([0])
+    # v = np.array([v_0])
+    # # t = np.array([0])
     
-    # Ecuaciones discretizadas #
-    z_r = np.append(z_r, z_0 - ( (deltat*n*current)/Q ) )
+    # # Ecuaciones discretizadas #
+    # z_r = np.append(z_r, z_0 - ( (deltat*n*current)/Q ) )
     
-    #Modelo
-    ocv_p = volt +  interpolation(z_data, r1_data, z_0)*i_R1 + interpolation(z_data, r0_data, z_0)*current
-    z_p = interpolation(ocv_data, z_data, ocv_p)
+    # #Modelo
+    # ocv_p = volt +  interpolation(z_data, r1_data, z_0)*i_R1 + interpolation(z_data, r0_data, z_0)*current
+    # z_p = interpolation(ocv_data, z_data, ocv_p)
     
-    i_R1 = np.append(i_1, math.exp(-deltat / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0)) * (i_0) + (1 - math.exp(-deltat / (interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0) ) ) ) * current)
-    v = np.append(v, (interpolation(z_data, ocv_data, z_0)) - (interpolation(z_data, r1_data, z_0) * (i_0)) - (interpolation(z_data, r0_data, z_0) * current))
+    # i_R1 = np.append(i_1, math.exp(-deltat / interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0)) * (i_0) + (1 - math.exp(-deltat / (interpolation(z_data, r1_data, z_0) * interpolation(z_data, c1_data, z_0) ) ) ) * current)
+    # v = np.append(v, (interpolation(z_data, ocv_data, z_0)) - (interpolation(z_data, r1_data, z_0) * (i_0)) - (interpolation(z_data, r0_data, z_0) * current))
      
     
     
-    z_0 = z_r[-1]
-    i_0 = i_R1[-1]
+    # z_0 = z_r[-1]
+    # i_0 = i_R1[-1]
 
     ##### FINAL DEL MODELO #####
 
@@ -311,9 +311,9 @@ def medicion():
     filename = base + "validation" + file_date + ".csv"
     outputCSV.iloc[-1:].to_csv(filename, index=False, mode='a', header=False) #Create csv for CHARGE
     
-    # Create csv of the model predicted values
-    model_validation = pd.DataFrame(data={"soc_predicted":z_1, "i_r1":i_1,"v":v})
-    model_validation.to_csv('home/pi/Repositories/battery_characterizer/validation/validation.csv', index=False, mode='a', header=["soc_predicted","i_r1", "v"])
+    # # Create csv of the model predicted values
+    # model_validation = pd.DataFrame(data={"soc_predicted":z_1, "i_r1":i_1,"v":v})
+    # model_validation.to_csv('home/pi/Repositories/battery_characterizer/validation/validation.csv', index=False, mode='a', header=["soc_predicted","i_r1", "v"])
     
 #Función para controlar módulo de relés (CH1 y CH2)    
 def relay_control(state):
