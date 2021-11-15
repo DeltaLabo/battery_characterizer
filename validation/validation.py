@@ -64,51 +64,61 @@ plt.plot(ocv_inv, soc_inv)
 plt.show()
 ###############PRUEBA##################
 
-# #i_R1_0 = 0
-# z_0_p = 0.80
-# z_0_r = 0.80
-# v_0 = 4.0
-# deltat = 1
+#i_R1_0 = 0
+z_0_p = 0.77
+z_0_r = 0.77
+v_0 = 4.0
+deltat = 1
 
-########### PREDECIR SOC #############
+########## PREDECIR SOC #############
 
-# z_p = np.array([z_0_p])
-# z_r = np.array([z_0_r])
-# iR1k = 0
-# #i_R1 = np.array([i_R1_0])
-# v = np.array([v_0])
-# n = 1
-# Q = 3.25 * 3600 #ampere-seconds
+z_p = np.array([z_0_p])
+z_r = np.array([z_0_r])
+iR1k = 0
+#i_R1 = np.array([i_R1_0])
+v = np.array([v_0])
+n = 1
+Q = 3.25 * 3600 #ampere-seconds
 
-# for i in range(len(bat40)-1):
-#     #### PARAMETERS #######
-#     vk = bat40.voltage[i]
-#     ik = bat40.current[i]
-#     zk = z_p[-1]
-#     R0 = interpolation(z_data, r0_data, zk)
-#     R1 = interpolation(z_data, r1_data, zk)
-#     C1 = interpolation(z_data, c1_data, zk)
-#     #R0 = 0.05
-#     #R1 = 0.001
-#     #C1 = 10000
+for i in range(len(val)-1):
+    #### PARAMETERS #######
+    vk = val.voltage[i]
+    ik = val.current[i]
+    zk = z_p[-1]
+    R0 = interpolation(z_data, r0_data, zk)
+    R1 = interpolation(z_data, r1_data, zk)
+    C1 = interpolation(z_data, c1_data, zk)
+    #R0 = 0.05
+    #R1 = 0.001
+    #C1 = 10000
     
     
-#     tau = R1 * C1
-#     ####### REAL ##########
-#     z_r = np.append( z_r, ( z_r[-1] - ( n * deltat * ik / Q ) ) )
-#     ####### PREDICHO ##########
+    tau = R1 * C1
+    ####### REAL ##########
+    z_r = np.append( z_r, ( z_r[-1] - ( n * deltat * ik / Q ) ) )
+    ####### PREDICHO ##########
 
-#     ocv_p = vk + ik * R0 + iR1k * R1     
-#     #print("V= ", bat40.voltage[i])
-#     # print("I= ", bat40.current[i])
-#     # print("OCV_p= ", ocv_p)
-#     # print("SOC_p=", inv_interpolation(z_data, ocv_data, ocv_p))
-#     z_new = inv_interpolation(z_data, ocv_data, ocv_p)
-#     z_p = np.append(z_p, z_new) #predicho
-#     iR1k = np.exp( -deltat / tau ) * iR1k + ( 1 - np.exp( -deltat / tau ) ) * ik
-#     #iR1 = np.append(iR1, ( np.exp( -deltat / (R1 * C1) ) ) * iR1k + ( 1 - np.exp( -deltat / (R1 * C1) ) ) * bat40.current[i])
+    ocv_p = vk + ik * R0 + iR1k * R1     
+    #print("V= ", bat40.voltage[i])
+    # print("I= ", bat40.current[i])
+    # print("OCV_p= ", ocv_p)
+    # print("SOC_p=", inv_interpolation(z_data, ocv_data, ocv_p))
+    z_new = inv_interpolation(z_data, ocv_data, ocv_p)
+    z_p = np.append(z_p, z_new) #predicho
+    iR1k = np.exp( -deltat / tau ) * iR1k + ( 1 - np.exp( -deltat / tau ) ) * ik
+    #iR1 = np.append(iR1, ( np.exp( -deltat / (R1 * C1) ) ) * iR1k + ( 1 - np.exp( -deltat / (R1 * C1) ) ) * bat40.current[i])
 	
-###################Predecir v####################
+##################Predecir v####################
+
+plt.figure(figsize=[15,5])
+plt.plot(val.time, z_r, label='real')
+plt.plot(val.time, z_p, label="predicted")
+plt.ylim((0.6,1))
+plt.xlabel('time(s)', fontsize=15)
+plt.ylabel('SOC', fontsize=15)
+plt.legend()
+plt.show()
+
 
 
 #i_R1_0 = 0
