@@ -3,37 +3,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-ds40 = pd.read_csv('FRDET40.csv')
+val = pd.read_csv('final_validation.csv')
 
-ds40.time = round(ds40.time * 60,0) #solo para pasarlo a segundos
+val.columns = ['timestamp','time','voltage','current', 'capacity', 'temperature']
+#newi = -bat40.ibat/2 #Cambiar a - al terminar la validación
+#bat40 = bat40.assign(ibat=newi.values)
+#val.current = val.current
+#bat40.iloc[0,1:4] = bat40.iloc[2,1:4]
+#bat40.iloc[1,1:4] = bat40.iloc[2,1:4]
 
-bat40 = ds40[['time','ibat','vbat']]
-newi = -bat40.ibat/2 #Cambiar a - al terminar la validación
-bat40 = bat40.assign(ibat=newi.values)
-power = bat40.apply(lambda row: row.ibat * row.vbat, axis=1)
-bat40 = bat40.assign(power=power.values)
-bat40.columns = ['time', 'current', 'voltage', 'power']
-
-bat40.iloc[0,1:4] = bat40.iloc[2,1:4]
-bat40.iloc[1,1:4] = bat40.iloc[2,1:4]
-
-print(bat40.head())
-
-
-ds35 = pd.read_csv('FRDET35.csv')
-
-ds35.time = round(ds35.time * 60,0) #solo para pasarlo a segundos
-
-bat35 = ds35[['time','ibat','vbat']]
-newi = -bat35.ibat/2 #Cambiar a - al terminar la validación
-bat35 = bat35.assign(ibat=newi.values)
-power = bat35.apply(lambda row: row.ibat * row.vbat, axis=1)
-bat35 = bat35.assign(power=power.values)
-bat35.columns = ['time', 'current', 'voltage', 'power']
-
-bat35.iloc[0,1:4] = bat35.iloc[2,1:4]
-bat35.iloc[1,1:4] = bat35.iloc[2,1:4]
-
+print(val.head())
 
 def interpolation(x, y, x_in): #Usar con R0, R1, C1
         for i in range(len(x)-1):
@@ -133,7 +112,7 @@ plt.show()
 
 
 #i_R1_0 = 0
-z_0_p = 0.78
+z_0_p = 0.77
 v_0 = 4.0
 deltat = 1
 
@@ -144,15 +123,15 @@ iR1k = 0
 #i_R1 = np.array([i_R1_0])
 
 n = 1
-Q = 3.25 * 3600 #ampere-seconds
+Q = 3.436 * 3600 #ampere-seconds
 
 
 
 
-for i in range(len(bat40)-1):
+for i in range(len(val)-1):
     #### PARAMETERS #######
     #vk = bat40.voltage[i]
-    ik = bat40.current[i]
+    ik = val.current[i]
     zk = z_p[-1]
     R0 = interpolation(z_data, r0_data, zk)
     R1 = interpolation(z_data, r1_data, zk)
@@ -163,7 +142,7 @@ for i in range(len(bat40)-1):
     ocv_p = interpolation(z_data, ocv_data, zk)
     vk = ocv_p - ik * R0 - iR1k * R1 
     v_p = np.append(v_p, vk)
-    v_r = np.append(v_r, bat40.voltage[i])
+    v_r = np.append(v_r,val.voltage[i])
     
     
     if ik > 0:
@@ -177,18 +156,18 @@ for i in range(len(bat40)-1):
 ocv_p = interpolation(z_data, ocv_data, zk)
 vk = ocv_p - ik * R0 #- iR1k * R1 
 v_p = np.append(v_p, vk)
-v_r = np.append(v_r, bat40.voltage[i])
+v_r = np.append(v_r, val.voltage[i])
 
 
-bat40.to_csv('bat40.csv', index=False)
-bat35.to_csv('bat35.csv', index=False)
+# bat40.to_csv('bat40.csv', index=False)
+# bat35.to_csv('bat35.csv', index=False)
 
 plt.figure(figsize=[15,5])
 #plt.plot(bat40.time, bat40.current/bat40.current.max(), label='normalized current')
 #plt.plot(bat40.time, bat40.voltage/bat40.voltage.max(), label='normalized voltage')
-plt.plot(bat40.time, v_r, label='real')
-plt.plot(bat40.time, v_p, label="predicted")
-plt.ylim((3.6,4.2))
+plt.plot(val.time, v_r, label='real')
+plt.plot(val.time, v_p, label="predicted")
+plt.ylim((3.8,4.1))
 plt.xlabel('time(s)', fontsize=15)
 plt.ylabel('power(W)', fontsize=15)
 plt.legend()
