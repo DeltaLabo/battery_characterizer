@@ -78,7 +78,7 @@ iR1k = 0
 #i_R1 = np.array([i_R1_0])
 v = np.array([v_0])
 n = 1
-Q = 3.25 * 3600 #ampere-seconds
+Q = 3.436 * 3600 #ampere-seconds
 
 for i in range(len(val)-1):
     #### PARAMETERS #######
@@ -119,6 +119,15 @@ plt.ylabel('SOC', fontsize=15)
 plt.legend()
 plt.show()
 
+from sklearn.metrics import r2_score
+
+print('R2:', end='') 
+print(r2_score(z_r, z_p))
+
+from sklearn.metrics import mean_absolute_percentage_error
+
+print('MAPE:', end='') 
+print(mean_absolute_percentage_error(z_r, z_p)*100,'%')
 
 
 #i_R1_0 = 0
@@ -167,6 +176,13 @@ ocv_p = interpolation(z_data, ocv_data, zk)
 vk = ocv_p - ik * R0 #- iR1k * R1 
 v_p = np.append(v_p, vk)
 v_r = np.append(v_r, val.voltage[i])
+
+
+print('R2volt:', end='') 
+print(r2_score(v_r, v_p))
+
+print('MAPE:', end='') 
+print(mean_absolute_percentage_error(z_r, z_p)*100,'%')
 
 
 # bat40.to_csv('bat40.csv', index=False)

@@ -276,7 +276,7 @@ def CHARGE (entry):
         relay_control(state) #CHARGE
         set_supply_voltage = df.iloc[0,1] #[fila,columna]
         batt_capacity = df.iloc[0,2] #[fila,columna]
-        set_C_rate = (1.0) #C rate seteado de C/35
+        set_C_rate = (0.5) #C rate seteado de C/35
         Fuente.aplicar_voltaje_corriente(channel, set_supply_voltage, set_C_rate)
         Fuente.toggle_4w() #Activar sensado
         Fuente.encender_canal(channel) #Solo hay un canal (el #1)
@@ -298,7 +298,7 @@ def CHARGE (entry):
             prev_state = "CHARGE" #From CHARGE
             state = "WAIT" #To WAIT
             init_flag = 1
-            mintowait = 4 #Wait 10 min
+            mintowait = 10 #Wait 10 min
         
 
 ################# Se define la función que hará que la batería se descargue #########################
@@ -325,7 +325,7 @@ def DISCHARGE(entry):
     if init_flag == 1:
         relay_control(state) #DISCHARGE
         Carga.remote_sense(True)
-        Carga.fijar_corriente(0.1) #Descargando a C/35
+        Carga.fijar_corriente(0.5) #Descargando a C/35
         Carga.encender_carga()
         past_time = datetime.now()
         file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -337,14 +337,14 @@ def DISCHARGE(entry):
     if timer_flag == 1:
         timer_flag = 0
         medicion()
-        if volt <= (2.5) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
+        if volt <= (4.0) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
             Carga.apagar_carga()
             if next_state_flag == 1:
                 next_state_flag = 0
             prev_state = "DISCHARGE" #From DISCHARGE
             state = "WAIT" #To WAIT
             init_flag = 1
-            mintowait = 4 # Wait 10 min.1 s = 2.5 s
+            mintowait = 10 # Wait 10 min.1 s = 2.5 s
             
     ##################################################################
      
