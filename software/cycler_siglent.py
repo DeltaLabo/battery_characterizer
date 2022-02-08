@@ -325,7 +325,7 @@ def DISCHARGE(entry):
     if init_flag == 1:
         relay_control(state) #DISCHARGE
         Carga.remote_sense(True)
-        Carga.fijar_corriente(0.5) #Descargando a C/35
+        Carga.fijar_corriente(0.2) #Descargando a C/35
         Carga.encender_carga()
         past_time = datetime.now()
         file_date = datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -337,7 +337,7 @@ def DISCHARGE(entry):
     if timer_flag == 1:
         timer_flag = 0
         medicion()
-        if volt <= (4.0) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
+        if volt <= (2.93) or next_state_flag == 1: #FLAG CAMBIO DE ESTADO CHARGE:
             Carga.apagar_carga()
             if next_state_flag == 1:
                 next_state_flag = 0

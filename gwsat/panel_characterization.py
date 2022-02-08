@@ -6,6 +6,7 @@ import pyvisa
 import controller2 #Solo se va a usar la Electronic Load
 import RPi.GPIO as GPIO
 import threading
+import time
 
 ### Resetear los GPIOs ###
 
@@ -20,17 +21,22 @@ GPIO.output(18, GPIO.LOW)
 ### Resource-set-up communication ###
 
 rm = pyvisa.ResourceManager()
-print(rm.list_resources()[1])
+print("Este es el número 1:\n", rm.list_resources()[1])
+carga = rm.list_resources()[1]
+print("La carga está dada por el recurso", carga)
 
-for i in range(3):
-    if rm.list_resources()[i].find("DL3A21") > 0:
-        carga = rm.open_resource(rm.list_resources()[i]) 
-        print("Carga DL3A21 encontrada")
-        print(carga.query("*IDN?"))
-    else:
-        print("Electronic load not found!")
 
-Carga = controller2.Carga(carga, "DL3021")
+# for i in range(6):
+    # if rm.list_resources()[i].find("DL3A21") > 0:
+        # carga = rm.open_resource(rm.list_resources()[i]) 
+        # print("Carga DL3A21 encontrada")
+        # print(carga.query("*IDN?"))
+    # #else:
+    # #    print("Electronic load not found!")
+
+Carga = controller2.Carga(carga, "DL3A21")
+
+# Carga.remote_sense(True)
 #####################################
 
 ### Global Variables ###
@@ -69,6 +75,7 @@ def pan_disch():
 
     if init_flag == 1:
         init_flag = 0
+        time.sleep(2)
         GPIO.output(18, GPIO.HIGH)
         Carga.remote_sense(True)
         Carga.set_mode("VOLT") #CV ON

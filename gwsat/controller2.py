@@ -158,6 +158,11 @@ class Carga:  # Esta clase describe cada neurona
         else:
             self.carga.write("SENS OFF")
 
+    # # Sensor terminals
+    # def remote_sense(self, state):
+        # self.carga.write(":SOUR:SENS {}".format(state))
+        # return self.carga.query(":SOUR:SENS?")
+
     # Measure CURR
     def medir_corriente(self):
         return float(self.carga.query("MEAS:CURR:DC?"))

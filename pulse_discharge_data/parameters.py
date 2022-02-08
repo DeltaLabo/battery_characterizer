@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import plotly.express as px
-import plotly.graph_objects as go
+#import plotly.express as px
+#import plotly.graph_objects as go
 
 df = pd.read_csv('discharge_pulse_1.0C.csv')
 df.columns = ['time','seconds', 'tag','voltage','current','capacity','temperature']
