@@ -157,11 +157,11 @@ class Carga:  # Esta clase describe cada neurona
             self.carga.write("SENS ON")
         else:
             self.carga.write("SENS OFF")
-
-    # # Sensor terminals
-    # def remote_sense(self, state):
-        # self.carga.write(":SOUR:SENS {}".format(state))
-        # return self.carga.query(":SOUR:SENS?")
+        
+    # Set voltage range to 15 V or 150 V (after setting CV mode)
+    def set_volt_range(self, rang: int):
+        self.carga.write(":SOUR:VOLT:RANG {}".format(rang))
+        return self.carga.query(":SOUR:VOLT:RANG?")
 
     # Measure CURR
     def medir_corriente(self):

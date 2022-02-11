@@ -39,6 +39,15 @@ Carga = controller2.Carga(carga, "DL3A21")
 # Carga.remote_sense(True)
 #####################################
 
+### Condiciones iniciales ###
+GPIO.output(18, GPIO.HIGH)
+Carga.remote_sense(False)
+Carga.set_mode("VOLT") #CV ON
+Carga.set_volt_range(15) #Range @ 15 V
+Carga.encender_carga()
+
+#############################
+
 ### Global Variables ###
 timer_flag = 0
 init_flag = 1
@@ -49,11 +58,11 @@ set_volt = 0
 ########################
 
 ### Interrupt Service Routine ###
-def isr():
-    global timer_flag
-    t = threading.Timer(1.0, isr)
-    t.start()
-    timer_flag = 1 #Do the measurement every second
+# def isr():
+    # global timer_flag
+    # t = threading.Timer(1.0, isr)
+    # t.start()
+    # timer_flag = 1 #Do the measurement every second
 #################################
 
 ### Measure the I&V variables every given time ###
@@ -70,42 +79,49 @@ def pan_disch():
     global timer_flag
     global init_flag
     global volt
-    global set_volt #Tiene que ser global?
+    global set_volt #Empieza en cero
     #global new_volt # Tiene que ser global?
-
-    if init_flag == 1:
-        init_flag = 0
-        time.sleep(2)
-        GPIO.output(18, GPIO.HIGH)
-        Carga.remote_sense(True)
-        Carga.set_mode("VOLT") #CV ON
-        Carga.set_volt_range(15) #Range @ 15 V
-        Carga.encender_carga()
-        timer_flag = 1
-
-    if timer_flag == 1:
-        timer_flag = 0
+    
+    volt, current = Carga.medir_todo()
+    while volt <= 22:
         Carga.fijar_voltaje(set_volt)
-        #time.sleep(1)
-        if volt <= 22: #Solar panel parameter
-            measure()
-            new_volt = (set_volt + (0.5)) # 0.5V increments
-            set_volt = new_volt
+        measure()
+        new_volt = (set_volt + (0.5))
+        set_volt = new_volt
+
+    # if init_flag == 1:
+        # init_flag = 0
+        # time.sleep(2)
+        # GPIO.output(18, GPIO.HIGH)
+        # Carga.remote_sense(True)
+        # Carga.set_mode("VOLT") #CV ON
+        # Carga.set_volt_range(15) #Range @ 15 V
+        # Carga.encender_carga()
+        # timer_flag = 1
+
+    # if timer_flag == 1:
+        # timer_flag = 0
+        # Carga.fijar_voltaje(set_volt)
+        # #time.sleep(1)
+        # if volt <= 22: #Solar panel parameter
+            # measure()
+            # new_volt = (set_volt + (0.5)) # 0.5V increments
+            # set_volt = new_volt
             
-        else:
-            # t.cancel() #Cancela el thread
-#This will only work if the timer is still in its waiting stage
-            GPIO.output(18, GPIO.LOW)
-            Carga.apagar_carga()
-            print("Se ha sobrepasado el voltaje límite!")
+        # else:
+            # # t.cancel() #Cancela el thread
+# #This will only work if the timer is still in its waiting stage
+            # GPIO.output(18, GPIO.LOW)
+            # Carga.apagar_carga()
+            # print("Se ha sobrepasado el voltaje límite!")
 
 #####################################
 
 ### Main Program ###
-t = threading.Timer(1.0, isr)
-t.start()
+# t = threading.Timer(1.0, isr)
+# t.start()
+pan_disch()
 ####################
-
 
 '''
 Falta encender el sensado, range de 15 V (pag 47), 
