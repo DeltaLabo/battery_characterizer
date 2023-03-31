@@ -1,4 +1,4 @@
-Battery characterizing system
+Battery characterizer system
 ============
 
 ### Most recent version of this repository can be found in: ###
